@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.savebot.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "SaveBot needs photo access to save images from your library.",
         "NSCameraUsageDescription": "SaveBot needs camera access to capture content."
@@ -45,7 +46,9 @@
           "color": "#6366F1"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
