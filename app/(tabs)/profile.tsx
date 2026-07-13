@@ -1,6 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { ConfirmModal } from '../../src/components/ConfirmModal';
 import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT } from '../../src/constants';
@@ -34,19 +36,10 @@ export default function ProfileScreen() {
   const favorites = items.filter(i => i.is_favorite).length;
   const platforms = [...new Set(items.map(i => i.source_platform).filter(Boolean))].length;
 
-  async function confirmSignOut(): Promise<boolean> {
-    // Alert.alert has no working buttons on web, so use window.confirm there.
-    if (Platform.OS === 'web') return window.confirm('Are you sure you want to sign out?');
-    return new Promise((resolve) => {
-      Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Sign out', style: 'destructive', onPress: () => resolve(true) },
-      ]);
-    });
-  }
+  const [showSignOut, setShowSignOut] = useState(false);
 
-  async function handleSignOut() {
-    if (!(await confirmSignOut())) return;
+  async function doSignOut() {
+    setShowSignOut(false);
     await signOut();
     router.replace('/(auth)/login');
   }
@@ -125,9 +118,20 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <View style={styles.sectionCard}>
-          <SettingsRow icon="log-out-outline" label="Sign out" onPress={handleSignOut} danger />
+          <SettingsRow icon="log-out-outline" label="Sign out" onPress={() => setShowSignOut(true)} danger />
         </View>
       </View>
+
+      <ConfirmModal
+        visible={showSignOut}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        danger
+        onConfirm={doSignOut}
+        onCancel={() => setShowSignOut(false)}
+      />
 
     </ScrollView>
   );
