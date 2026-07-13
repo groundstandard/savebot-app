@@ -31,52 +31,17 @@ async function applyRedirectParams(params: URLSearchParams): Promise<void> {
   }
 }
 
-/** Web: run OAuth in a centered popup window so the login page stays put.
- *  Closing the popup = cancel (throws { code: 'oauth_cancel' }). */
-async function oauthPopupWeb(provider: Provider): Promise<void> {
-  const { data, error } = await supabase.auth.signInWithOAuth({
+/** Web: full-page redirect through the provider. A popup would be nicer, but the
+ *  browser's Cross-Origin-Opener-Policy blocks inspecting the popup (can't read
+ *  window.closed/location), so the redirect is the reliable path. detectSessionInUrl
+ *  (see supabase.ts) picks up the session when the provider redirects back. */
+async function oauthRedirectWeb(provider: Provider): Promise<void> {
+  const { error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { skipBrowserRedirect: true, redirectTo: window.location.origin },
+    options: { redirectTo: window.location.origin },
   });
   if (error) throw error;
-  if (!data?.url) throw new Error('Could not start sign-in.');
-
-  const w = 480, h = 640;
-  const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
-  const top = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
-  const popup = window.open(data.url, 'savebot-oauth', `width=${w},height=${h},left=${left},top=${top}`);
-  if (!popup) throw new Error('Popup was blocked — please allow popups and try again.');
-
-  return new Promise<void>((resolve, reject) => {
-    const timer = setInterval(async () => {
-      // User closed the popup → treat as cancel (fall back to a shared session if any).
-      if (popup.closed) {
-        clearInterval(timer);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) resolve();
-        else reject({ code: 'oauth_cancel' });
-        return;
-      }
-      let href = '';
-      try { href = popup.location.href; } catch { return; } // still on provider (cross-origin)
-      if (!href || !href.startsWith(window.location.origin)) return;
-
-      clearInterval(timer);
-      try {
-        const raw = (popup.location.hash || popup.location.search || '').replace(/^[#?]/, '');
-        await applyRedirectParams(new URLSearchParams(raw));
-        // If the popup's own app already consumed the tokens, the session is in
-        // shared storage — pick it up so the main window is signed in either way.
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('No session returned.');
-        resolve();
-      } catch (e) {
-        reject(e);
-      } finally {
-        try { popup.close(); } catch { /* ignore */ }
-      }
-    }, 250);
-  });
+  // The page navigates away here; the session is applied on return.
 }
 
 /** Native: system in-app browser sheet (has its own Cancel). */
@@ -94,7 +59,7 @@ async function oauthNative(provider: Provider): Promise<void> {
 }
 
 export async function signInWithGoogle(): Promise<void> {
-  if (Platform.OS === 'web') return oauthPopupWeb('google');
+  if (Platform.OS === 'web') return oauthRedirectWeb('google');
   return oauthNative('google');
 }
 
@@ -114,7 +79,7 @@ export async function signInWithApple(): Promise<void> {
     if (error) throw error;
     return;
   }
-  if (Platform.OS === 'web') return oauthPopupWeb('apple');
+  if (Platform.OS === 'web') return oauthRedirectWeb('apple');
   return oauthNative('apple');
 }
 
