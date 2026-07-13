@@ -2,7 +2,7 @@
   "expo": {
     "name": "SaveBot",
     "slug": "savebot-app",
-    "owner": "groundstandard",
+    "owner": "ground-standard-agency",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,9 +11,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.savebot.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "SaveBot needs photo access to save images from your library.",
-        "NSCameraUsageDescription": "SaveBot needs camera access to capture content."
+        "NSCameraUsageDescription": "SaveBot needs camera access to capture content.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -22,7 +24,11 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "backgroundColor": "#6366F1"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -45,7 +51,9 @@
           "color": "#6366F1"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
@@ -54,6 +62,12 @@
       "eas": {
         "projectId": "c73236bf-63ff-4b20-9a20-839f9dce7f5f"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c73236bf-63ff-4b20-9a20-839f9dce7f5f"
     }
   }
 }
