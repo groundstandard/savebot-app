@@ -2,7 +2,7 @@
   "expo": {
     "name": "SaveBot",
     "slug": "savebot-app",
-    "owner": "groundstandard",
+    "owner": "ground-standard-agency",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
