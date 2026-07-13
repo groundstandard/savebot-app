@@ -6,7 +6,7 @@ import {
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
-import { signInWithGoogle, signInWithApple, isAppleCancel } from '../../src/lib/api/socialAuth';
+import { SocialAuthButtons } from '../../src/components/SocialAuthButtons';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../../src/constants';
 
 export default function LoginScreen() {
@@ -17,21 +17,6 @@ export default function LoginScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const [emailFocus, setEmailFocus] = useState(false);
   const [passFocus, setPassFocus] = useState(false);
-  const [social, setSocial] = useState<'google' | 'apple' | null>(null);
-
-  async function handleSocial(provider: 'google' | 'apple') {
-    setErrorMsg('');
-    setSocial(provider);
-    try {
-      if (provider === 'google') await signInWithGoogle();
-      else await signInWithApple();
-      router.replace('/');
-    } catch (e: any) {
-      if (!isAppleCancel(e)) setErrorMsg(e?.message ?? 'Sign-in failed.');
-    } finally {
-      setSocial(null);
-    }
-  }
 
   async function handleLogin() {
     setErrorMsg('');
@@ -127,15 +112,7 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <TouchableOpacity style={styles.googleBtn} activeOpacity={0.85} onPress={() => handleSocial('google')} disabled={!!social}>
-            <Ionicons name="logo-google" size={18} color="#DB4437" />
-            <Text style={styles.googleBtnText}>{social === 'google' ? 'Connecting…' : 'Continue with Google'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.appleBtn} activeOpacity={0.85} onPress={() => handleSocial('apple')} disabled={!!social}>
-            <Ionicons name="logo-apple" size={18} color="#fff" />
-            <Text style={styles.appleBtnText}>{social === 'apple' ? 'Connecting…' : 'Continue with Apple'}</Text>
-          </TouchableOpacity>
+          <SocialAuthButtons onError={setErrorMsg} redirectTo="/" />
 
           <Link href="/(auth)/signup" asChild>
             <TouchableOpacity style={styles.linkRow}>
@@ -208,19 +185,6 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
   dividerText: { marginHorizontal: SPACING.md, fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, fontWeight: '600' },
 
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1.5, borderColor: COLORS.border,
-    paddingVertical: 16, marginBottom: SPACING.md,
-  },
-  googleBtnText: { color: COLORS.text, fontSize: FONT_SIZE.md, fontWeight: '600' },
-  appleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
-    backgroundColor: '#1C1C1E', borderRadius: BORDER_RADIUS.md,
-    paddingVertical: 16, marginBottom: SPACING.lg,
-  },
-  appleBtnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '600' },
 
   linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   linkText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
