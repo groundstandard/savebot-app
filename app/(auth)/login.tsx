@@ -6,7 +6,9 @@ import {
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
+import { useAuthStore } from '../../src/store/auth';
 import { SocialAuthButtons } from '../../src/components/SocialAuthButtons';
+import { LoadingScreen } from '../../src/components/LoadingScreen';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../../src/constants';
 
 export default function LoginScreen() {
@@ -22,11 +24,15 @@ export default function LoginScreen() {
     setErrorMsg('');
     if (!email || !password) { setErrorMsg('Please enter your email and password.'); return; }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) setErrorMsg(error.message);
-    else router.replace('/');
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { setLoading(false); setErrorMsg(error.message); return; }
+    // Set the session synchronously before navigating so the index doesn't
+    // briefly see "no session" and flash the login screen again.
+    if (data.session) useAuthStore.getState().setSession(data.session);
+    router.replace('/');
   }
+
+  if (loading) return <LoadingScreen message="Signing you in…" />;
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

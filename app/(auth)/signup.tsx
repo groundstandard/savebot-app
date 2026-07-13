@@ -6,6 +6,7 @@ import {
 import { Link, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
+import { useAuthStore } from '../../src/store/auth';
 import { SocialAuthButtons } from '../../src/components/SocialAuthButtons';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../../src/constants';
 
@@ -26,14 +27,15 @@ export default function SignupScreen() {
     if (!name || !email || !password) { setErrorMsg('Please fill in all fields.'); return; }
     if (password.length < 6) { setErrorMsg('Password must be at least 6 characters.'); return; }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { display_name: name } },
     });
     setLoading(false);
-    if (error) setErrorMsg(error.message);
-    else router.replace('/(onboarding)/interests');
+    if (error) { setErrorMsg(error.message); return; }
+    if (data.session) useAuthStore.getState().setSession(data.session);
+    router.replace('/(onboarding)/interests');
   }
 
   return (
