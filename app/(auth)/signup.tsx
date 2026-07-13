@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useAuthStore } from '../../src/store/auth';
 import { SocialAuthButtons } from '../../src/components/SocialAuthButtons';
+import { LoadingScreen } from '../../src/components/LoadingScreen';
 import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../../src/constants';
 
 export default function SignupScreen() {
@@ -21,6 +22,7 @@ export default function SignupScreen() {
   const [nameFocus, setNameFocus] = useState(false);
   const [emailFocus, setEmailFocus] = useState(false);
   const [passFocus, setPassFocus] = useState(false);
+  const authenticating = useAuthStore((s) => s.authenticating);
 
   async function handleSignup() {
     setErrorMsg('');
@@ -37,6 +39,8 @@ export default function SignupScreen() {
     if (data.session) useAuthStore.getState().setSession(data.session);
     router.replace('/(onboarding)/interests');
   }
+
+  if (loading || authenticating) return <LoadingScreen message="Signing you in…" />;
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

@@ -1,16 +1,15 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { supabase } from '../src/lib/supabase';
-import { COLORS } from '../src/constants';
+import { useAuthStore } from '../src/store/auth';
+import { LoadingScreen } from '../src/components/LoadingScreen';
 
 /**
- * Handles the OAuth deep-link return (savebot://auth-callback). On native the
- * provider redirect sometimes opens the app here instead of being caught by the
- * in-app browser — this route reads the tokens from the URL, sets the session,
- * and sends the user in, so sign-in completes on the FIRST try (no more bouncing
- * back to the login screen or hitting an "Unmatched Route").
+ * Handles the OAuth deep-link return (savebot://auth-callback) on native. Reads the
+ * tokens from the URL, sets the session (synchronously into the store so the index
+ * never flashes the login screen), then routes into the app — sign-in completes on
+ * the first try with one continuous loading screen.
  */
 export default function AuthCallback() {
   useEffect(() => {
@@ -32,25 +31,19 @@ export default function AuthCallback() {
             await supabase.auth.exchangeCodeForSession(code);
           }
         }
+        const { data } = await supabase.auth.getSession();
+        useAuthStore.getState().setSession(data.session);
       } catch {
-        // ignore — index will route to login if no session was established
+        useAuthStore.getState().setAuthenticating(false);
       }
       router.replace('/');
     }
 
     Linking.getInitialURL().then((u) => complete(u));
     const sub = Linking.addEventListener('url', (e) => complete(e.url));
-    const timer = setTimeout(() => complete(null), 2000); // fallback
+    const timer = setTimeout(() => complete(null), 2000);
     return () => { sub.remove(); clearTimeout(timer); };
   }, []);
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
-    </View>
-  );
+  return <LoadingScreen message="Signing you in…" />;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background },
-});

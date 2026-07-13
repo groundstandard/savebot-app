@@ -19,6 +19,7 @@ export default function LoginScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const [emailFocus, setEmailFocus] = useState(false);
   const [passFocus, setPassFocus] = useState(false);
+  const authenticating = useAuthStore((s) => s.authenticating);
 
   async function handleLogin() {
     setErrorMsg('');
@@ -32,7 +33,7 @@ export default function LoginScreen() {
     router.replace('/');
   }
 
-  if (loading) return <LoadingScreen message="Signing you in…" />;
+  if (loading || authenticating) return <LoadingScreen message="Signing you in…" />;
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

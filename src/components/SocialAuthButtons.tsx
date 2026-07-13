@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleIcon } from './GoogleIcon';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/auth';
 import { signInWithGoogle, signInWithApple, isCancel } from '../lib/api/socialAuth';
 import { FONT_SIZE, BORDER_RADIUS, SPACING } from '../constants';
 
@@ -12,46 +13,46 @@ interface Props {
 }
 
 export function SocialAuthButtons({ onError, redirectTo = '/' }: Props) {
-  const [busy, setBusy] = useState<'google' | 'apple' | null>(null);
-
   async function handle(provider: 'google' | 'apple') {
     onError?.('');
-    setBusy(provider);
+    // Flip on the global loading screen immediately so the login form is never
+    // visible again during the OAuth round-trip (no flashing back to login).
+    useAuthStore.getState().setAuthenticating(true);
     try {
       if (provider === 'google') await signInWithGoogle();
       else await signInWithApple();
-      router.replace(redirectTo as never);
     } catch (e: any) {
-      if (!isCancel(e)) onError?.(e?.message ?? 'Sign-in failed.');
-    } finally {
-      setBusy(null);
+      if (!isCancel(e)) {
+        useAuthStore.getState().setAuthenticating(false);
+        onError?.(e?.message ?? 'Sign-in failed.');
+        return;
+      }
+      // A "cancel" on Android can actually be the deep-link succeeding — fall
+      // through and wait for the session before deciding it was a real cancel.
     }
+    // Wait for the session to land (WebBrowser parse OR the auth-callback route).
+    for (let i = 0; i < 24; i++) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        useAuthStore.getState().setSession(data.session);
+        router.replace(redirectTo as never);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    useAuthStore.getState().setAuthenticating(false); // genuine cancel / no session
   }
 
   return (
     <View>
-      {/* Google — white, brand gray text, 4-color mark */}
-      <TouchableOpacity style={styles.google} activeOpacity={0.7} onPress={() => handle('google')} disabled={!!busy}>
-        {busy === 'google' ? (
-          <ActivityIndicator size="small" color="#3c4043" />
-        ) : (
-          <>
-            <GoogleIcon size={18} />
-            <Text style={styles.googleText}>Continue with Google</Text>
-          </>
-        )}
+      <TouchableOpacity style={styles.google} activeOpacity={0.7} onPress={() => handle('google')}>
+        <GoogleIcon size={18} />
+        <Text style={styles.googleText}>Continue with Google</Text>
       </TouchableOpacity>
 
-      {/* Apple — black, white mark */}
-      <TouchableOpacity style={styles.apple} activeOpacity={0.85} onPress={() => handle('apple')} disabled={!!busy}>
-        {busy === 'apple' ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="logo-apple" size={19} color="#fff" style={styles.appleIcon} />
-            <Text style={styles.appleText}>Continue with Apple</Text>
-          </>
-        )}
+      <TouchableOpacity style={styles.apple} activeOpacity={0.85} onPress={() => handle('apple')}>
+        <Ionicons name="logo-apple" size={19} color="#fff" style={styles.appleIcon} />
+        <Text style={styles.appleText}>Continue with Apple</Text>
       </TouchableOpacity>
     </View>
   );
