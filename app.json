@@ -1,25 +1,59 @@
 {
   "expo": {
-    "name": "savebot-app",
+    "name": "SaveBot",
     "slug": "savebot-app",
+    "owner": "groundstandard",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "scheme": "savebot",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.savebot.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "SaveBot needs photo access to save images from your library.",
+        "NSCameraUsageDescription": "SaveBot needs camera access to capture content."
+      }
     },
     "android": {
+      "package": "com.savebot.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+        "backgroundColor": "#6366F1"
+      }
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SaveBot needs photo access to save images from your library."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6366F1"
+        }
+      ],
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c73236bf-63ff-4b20-9a20-839f9dce7f5f"
+      }
     }
   }
 }
