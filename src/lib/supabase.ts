@@ -26,6 +26,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // On web the OAuth redirect returns tokens in the URL — parse them so the
+    // session is picked up. On native we handle the redirect manually (socialAuth).
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
