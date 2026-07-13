@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../src/constants';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -29,14 +30,17 @@ function TabContent({
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  // Float the bar above the device's system nav (buttons or gesture bar).
+  const barBottom = Math.max(insets.bottom, 10) + 8;
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: Platform.select({
-          ios: { ...styles.bar, position: 'absolute', bottom: 24, left: 16, right: 16 },
-          android: { ...styles.bar, position: 'absolute', bottom: 16, left: 16, right: 16 },
+          ios: { ...styles.bar, position: 'absolute', bottom: barBottom, left: 16, right: 16 },
+          android: { ...styles.bar, position: 'absolute', bottom: barBottom, left: 16, right: 16 },
           web: { ...styles.bar },
         }),
         tabBarItemStyle: styles.tabItem,
