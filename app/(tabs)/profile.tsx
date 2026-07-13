@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
@@ -33,11 +34,21 @@ export default function ProfileScreen() {
   const favorites = items.filter(i => i.is_favorite).length;
   const platforms = [...new Set(items.map(i => i.source_platform).filter(Boolean))].length;
 
-  function handleSignOut() {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: signOut },
-    ]);
+  async function confirmSignOut(): Promise<boolean> {
+    // Alert.alert has no working buttons on web, so use window.confirm there.
+    if (Platform.OS === 'web') return window.confirm('Are you sure you want to sign out?');
+    return new Promise((resolve) => {
+      Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Sign out', style: 'destructive', onPress: () => resolve(true) },
+      ]);
+    });
+  }
+
+  async function handleSignOut() {
+    if (!(await confirmSignOut())) return;
+    await signOut();
+    router.replace('/(auth)/login');
   }
 
   return (
