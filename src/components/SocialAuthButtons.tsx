@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleIcon } from './GoogleIcon';
-import { signInWithGoogle, signInWithApple, isAppleCancel } from '../lib/api/socialAuth';
+import { signInWithGoogle, signInWithApple, isCancel } from '../lib/api/socialAuth';
 import { FONT_SIZE, BORDER_RADIUS, SPACING } from '../constants';
 
 interface Props {
@@ -22,7 +22,7 @@ export function SocialAuthButtons({ onError, redirectTo = '/' }: Props) {
       else await signInWithApple();
       router.replace(redirectTo as never);
     } catch (e: any) {
-      if (!isAppleCancel(e)) onError?.(e?.message ?? 'Sign-in failed.');
+      if (!isCancel(e)) onError?.(e?.message ?? 'Sign-in failed.');
     } finally {
       setBusy(null);
     }
