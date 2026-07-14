@@ -40,9 +40,8 @@ export default function SignupScreen() {
     router.replace('/(onboarding)/interests');
   }
 
-  if (loading || authenticating) return <LoadingScreen message="Signing you in…" />;
-
   return (
+    <View style={{ flex: 1 }}>
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
@@ -144,6 +143,12 @@ export default function SignupScreen() {
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
+      {(loading || authenticating) && (
+        <View style={StyleSheet.absoluteFill}>
+          <LoadingScreen message="Signing you in…" />
+        </View>
+      )}
+    </View>
   );
 }
 
