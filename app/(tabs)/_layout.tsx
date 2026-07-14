@@ -1,88 +1,81 @@
-import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../src/constants';
 
+type TabBarProps = {
+  state: { index: number; routes: { key: string; name: string }[] };
+  navigation: {
+    emit: (e: { type: 'tabPress'; target: string; canPreventDefault: true }) => { defaultPrevented: boolean };
+    navigate: (name: string) => void;
+  };
+};
+
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const INACTIVE = '#9AA3B2';
 
-function TabContent({
-  icon, iconFocused, label, focused, compact,
-}: {
-  icon: IconName; iconFocused: IconName; label: string; focused: boolean; compact: boolean;
-}) {
-  if (focused) {
-    return (
-      <View style={styles.pill}>
-        <Ionicons name={iconFocused} size={18} color="#fff" />
-        {!compact && <Text style={styles.pillLabel} numberOfLines={1}>{label}</Text>}
-      </View>
-    );
-  }
-  return <Ionicons name={icon} size={23} color={INACTIVE} />;
+const TABS: Record<string, { off: IconName; on: IconName; label: string }> = {
+  'library/index': { off: 'bookmark-outline', on: 'bookmark', label: 'Library' },
+  search: { off: 'search-outline', on: 'search', label: 'Search' },
+  add: { off: 'add-circle-outline', on: 'add-circle', label: 'Add' },
+  profile: { off: 'person-outline', on: 'person', label: 'Profile' },
+};
+
+// Custom tab bar — full control over spacing and press feedback (a subtle opacity
+// dim on tap instead of the default dark Android ripple).
+function TabBar({ state, navigation }: TabBarProps) {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  const bottom = Math.max(insets.bottom, 10) + 8;
+  const side = Math.min(Math.max(width * 0.06, 20), 34);
+  const compact = width < 360;
+
+  const activeName = state.routes[state.index]?.name;
+  const tabs = state.routes.filter((r) => TABS[r.name]);
+
+  return (
+    <View style={[styles.bar, { bottom, left: side, right: side }]}>
+      {tabs.map((route) => {
+        const meta = TABS[route.name];
+        const focused = activeName === route.name;
+
+        const onPress = () => {
+          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+        };
+
+        return (
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            android_ripple={null}
+            style={({ pressed }) => [styles.item, pressed && { opacity: 0.55 }]}
+          >
+            {focused ? (
+              <View style={styles.pill}>
+                <Ionicons name={meta.on} size={18} color="#fff" />
+                {!compact && <Text style={styles.pillLabel} numberOfLines={1}>{meta.label}</Text>}
+              </View>
+            ) : (
+              <Ionicons name={meta.off} size={23} color={INACTIVE} />
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  // Float the bar above the device's system nav (buttons or gesture bar).
-  const barBottom = Math.max(insets.bottom, 10) + 8;
-  // Responsive side margin + hide labels on very narrow phones so the pill fits.
-  const sideMargin = Math.min(Math.max(width * 0.05, 16), 28);
-  const compact = width < 360;
-
-  const bar = {
-    ...styles.bar,
-    position: 'absolute' as const,
-    bottom: barBottom,
-    left: sideMargin,
-    right: sideMargin,
-  };
-
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: Platform.OS === 'web' ? styles.bar : bar,
-        tabBarItemStyle: styles.tabItem,
-        tabBarIconStyle: styles.iconStyle,
-      }}
-    >
-      <Tabs.Screen
-        name="library/index"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabContent icon="bookmark-outline" iconFocused="bookmark" label="Library" focused={focused} compact={compact} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabContent icon="search-outline" iconFocused="search" label="Search" focused={focused} compact={compact} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="add"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabContent icon="add-circle-outline" iconFocused="add-circle" label="Add" focused={focused} compact={compact} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabContent icon="person-outline" iconFocused="person" label="Profile" focused={focused} compact={compact} />
-          ),
-        }}
-      />
+    <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="library/index" />
+      <Tabs.Screen name="search" />
+      <Tabs.Screen name="add" />
+      <Tabs.Screen name="profile" />
       <Tabs.Screen name="library/[categoryId]" options={{ href: null }} />
     </Tabs>
   );
@@ -90,31 +83,25 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   bar: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 64,
     backgroundColor: COLORS.white,
-    borderTopWidth: 0,
     borderRadius: 22,
+    paddingHorizontal: 10,
     shadowColor: '#1E293B',
     shadowOpacity: 0.1,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 12,
-    paddingHorizontal: 6,
   },
-  tabItem: {
-    height: 64,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconStyle: {
+  item: {
     flex: 1,
-    width: '100%',
     height: '100%',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  // Active tab — solid brand pill with icon + label
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
