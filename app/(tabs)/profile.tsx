@@ -77,7 +77,7 @@ export default function ProfileScreen() {
 
       {/* Upgrade card */}
       {!isPro && (
-        <TouchableOpacity style={styles.upgradeCard} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.upgradeCard} activeOpacity={0.9} onPress={() => router.push('/upgrade')}>
           <View style={styles.upgradeLeft}>
             <View style={styles.upgradeBadge}>
               <Ionicons name="flash" size={14} color="#F59E0B" />
@@ -97,22 +97,22 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.sectionCard}>
-          <SettingsRow icon="person-outline" label="Edit profile" />
+          <SettingsRow icon="person-outline" label="Edit profile" onPress={() => router.push('/edit-profile')} />
           <View style={styles.divider} />
-          <SettingsRow icon="notifications-outline" label="Notifications" />
+          <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => router.push('/notifications')} />
           <View style={styles.divider} />
-          <SettingsRow icon="lock-closed-outline" label="Privacy & security" />
+          <SettingsRow icon="lock-closed-outline" label="Privacy & security" onPress={() => router.push('/privacy')} />
         </View>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>App</Text>
         <View style={styles.sectionCard}>
-          <SettingsRow icon="color-palette-outline" label="Appearance" value="System" />
+          <SettingsRow icon="color-palette-outline" label="Appearance" onPress={() => router.push('/appearance')} />
           <View style={styles.divider} />
-          <SettingsRow icon="help-circle-outline" label="Help & support" />
+          <SettingsRow icon="help-circle-outline" label="Help & support" onPress={() => router.push('/help')} />
           <View style={styles.divider} />
-          <SettingsRow icon="information-circle-outline" label="About SaveBot" value="v1.0.0" />
+          <SettingsRow icon="information-circle-outline" label="About SaveBot" value="v1.0.0" onPress={() => router.push('/about')} />
         </View>
       </View>
 
