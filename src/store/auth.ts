@@ -21,9 +21,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   authenticating: false,
 
-  // Any session change ends the "authenticating" phase so the UI stops showing
-  // the loading screen and routes accordingly.
-  setSession: (session) => set({ session, loading: false, authenticating: false }),
+  // Keep "authenticating" true while a session is being established (so the login
+  // form never flashes back before navigation); only clear it when we end up with
+  // no session (sign-out / expiry), so the login screen can show again.
+  setSession: (session) =>
+    set({ session, loading: false, ...(session ? {} : { authenticating: false }) }),
 
   setAuthenticating: (authenticating) => set({ authenticating }),
 
