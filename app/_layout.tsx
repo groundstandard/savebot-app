@@ -10,9 +10,12 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="(tabs)" />
+        {/* Auth-flow screens swap instantly (no slide) so the loading→app
+            transition doesn't flicker the login screen. */}
+        <Stack.Screen name="index" options={{ animation: 'none' }} />
+        <Stack.Screen name="(auth)" options={{ animation: 'none' }} />
+        <Stack.Screen name="(onboarding)" options={{ animation: 'none' }} />
+        <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
         <Stack.Screen name="auth-callback" options={{ animation: 'none' }} />
         <Stack.Screen name="item/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="cook-mode/[id]" options={{ presentation: 'fullScreenModal' }} />
