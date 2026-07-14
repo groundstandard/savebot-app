@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { ScreenHeader } from '../src/components/ScreenHeader';
 import { supabase } from '../src/lib/supabase';
 import { useAuthStore } from '../src/store/auth';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../src/constants';
+import { useColors } from '../src/hooks/useColors';
+import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../src/constants';
 
 export default function EditProfile() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const { user, fetchUser } = useAuthStore();
   const [name, setName] = useState(user?.display_name ?? '');
   const [saving, setSaving] = useState(false);
@@ -37,7 +40,7 @@ export default function EditProfile() {
           value={name}
           onChangeText={(t) => { setName(t); setMsg(''); }}
           placeholder="Your name"
-          placeholderTextColor={COLORS.textTertiary}
+          placeholderTextColor={c.textTertiary}
           autoCapitalize="words"
         />
 
@@ -57,24 +60,24 @@ export default function EditProfile() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.background },
   body: { padding: SPACING.lg },
   avatar: {
     alignSelf: 'center', width: 88, height: 88, borderRadius: 28,
-    backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center',
     marginBottom: SPACING.xl, ...SHADOW.primary,
   },
   avatarText: { fontSize: 36, fontWeight: '800', color: '#fff' },
-  label: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, marginTop: SPACING.md },
+  label: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: c.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, marginTop: SPACING.md },
   input: {
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md, borderWidth: 1.5, borderColor: COLORS.border,
-    paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONT_SIZE.md, color: COLORS.text,
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md, borderWidth: 1.5, borderColor: c.border,
+    paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONT_SIZE.md, color: c.text,
   },
-  disabled: { backgroundColor: COLORS.surfaceAlt, justifyContent: 'center' },
-  disabledText: { fontSize: FONT_SIZE.md, color: COLORS.textTertiary },
-  hint: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, marginTop: 5 },
-  err: { color: COLORS.danger, fontSize: FONT_SIZE.sm, marginTop: SPACING.md },
-  btn: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: 16, alignItems: 'center', marginTop: SPACING.xl, ...SHADOW.primary },
+  disabled: { backgroundColor: c.surfaceAlt, justifyContent: 'center' },
+  disabledText: { fontSize: FONT_SIZE.md, color: c.textTertiary },
+  hint: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: 5 },
+  err: { color: c.danger, fontSize: FONT_SIZE.sm, marginTop: SPACING.md },
+  btn: { backgroundColor: c.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: 16, alignItems: 'center', marginTop: SPACING.xl, ...SHADOW.primary },
   btnText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '700' },
 });

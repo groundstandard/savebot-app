@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Linking, Platform,
@@ -7,7 +7,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { toggleFavorite } from '../../src/lib/api/saveItem';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../../src/constants';
+import { useColors } from '../../src/hooks/useColors';
+import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../../src/constants';
 import type {
   SavedItem, RecipeData, WorkoutData, TravelData, ProductData, GenericData,
 } from '../../src/types';
@@ -15,6 +16,8 @@ import type {
 type ViewMode = 'clean' | 'original';
 
 export default function ItemDetailScreen() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<SavedItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +46,7 @@ export default function ItemDetailScreen() {
     await toggleFavorite(item.id, next);
   }
 
-  if (loading) return <View style={styles.centered}><ActivityIndicator color={COLORS.primary} size="large" /></View>;
+  if (loading) return <View style={styles.centered}><ActivityIndicator color={c.primary} size="large" /></View>;
   if (!item) return <View style={styles.centered}><Text style={styles.notFound}>Item not found.</Text></View>;
 
   const isRecipe = item.content_classification === 'recipe';
@@ -53,15 +56,15 @@ export default function ItemDetailScreen() {
       {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={20} color={COLORS.text} />
+          <Ionicons name="chevron-back" size={20} color={c.text} />
         </TouchableOpacity>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={handleFavoriteToggle} style={styles.iconBtn} activeOpacity={0.7}>
-            <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={20} color={favorite ? '#EC4899' : COLORS.text} />
+            <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={20} color={favorite ? '#EC4899' : c.text} />
           </TouchableOpacity>
           {item.source_url && (
             <TouchableOpacity onPress={() => Linking.openURL(item.source_url!)} style={styles.iconBtn} activeOpacity={0.7}>
-              <Ionicons name="open-outline" size={20} color={COLORS.text} />
+              <Ionicons name="open-outline" size={20} color={c.text} />
             </TouchableOpacity>
           )}
         </View>
@@ -79,7 +82,7 @@ export default function ItemDetailScreen() {
             <Ionicons
               name={v === 'clean' ? 'sparkles' : 'phone-portrait-outline'}
               size={14}
-              color={view === v ? COLORS.primary : COLORS.textSecondary}
+              color={view === v ? c.primary : c.textSecondary}
             />
             <Text style={[styles.viewTabText, view === v && styles.viewTabTextActive]}>
               {v === 'clean' ? 'Clean View' : 'Original'}
@@ -107,12 +110,14 @@ export default function ItemDetailScreen() {
 }
 
 function CleanView({ item }: { item: SavedItem }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const data = item.structured_data;
 
   if (item.processing_status === 'processing' || item.processing_status === 'pending') {
     return (
       <View style={styles.stateCard}>
-        <ActivityIndicator color={COLORS.primary} />
+        <ActivityIndicator color={c.primary} />
         <Text style={styles.stateText}>AI is analyzing this content…</Text>
       </View>
     );
@@ -121,7 +126,7 @@ function CleanView({ item }: { item: SavedItem }) {
   if (item.processing_status === 'failed') {
     return (
       <View style={styles.stateCard}>
-        <Ionicons name="alert-circle-outline" size={32} color={COLORS.danger} />
+        <Ionicons name="alert-circle-outline" size={32} color={c.danger} />
         <Text style={styles.stateText}>Analysis failed. Try re-saving this item.</Text>
       </View>
     );
@@ -148,7 +153,7 @@ function CleanView({ item }: { item: SavedItem }) {
 
       {!data && !item.ai_summary && (
         <View style={styles.stateCard}>
-          <Ionicons name="document-text-outline" size={32} color={COLORS.textTertiary} />
+          <Ionicons name="document-text-outline" size={32} color={c.textTertiary} />
           <Text style={styles.stateText}>No structured details extracted for this item.</Text>
         </View>
       )}
@@ -158,6 +163,8 @@ function CleanView({ item }: { item: SavedItem }) {
 
 /* ---------- Recipe ---------- */
 function RecipeView({ data }: { data: RecipeData }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
       <Text style={styles.title}>{data.dish_name}</Text>
@@ -196,6 +203,8 @@ function RecipeView({ data }: { data: RecipeData }) {
 
 /* ---------- Workout ---------- */
 function WorkoutView({ data }: { data: WorkoutData }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
       <Text style={styles.title}>{data.workout_name}</Text>
@@ -234,6 +243,8 @@ function WorkoutView({ data }: { data: WorkoutData }) {
 
 /* ---------- Travel ---------- */
 function TravelView({ data }: { data: TravelData }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
       <Text style={styles.title}>{data.destination}</Text>
@@ -260,6 +271,8 @@ function TravelView({ data }: { data: TravelData }) {
 
 /* ---------- Product ---------- */
 function ProductView({ data }: { data: ProductData }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
       <Text style={styles.title}>{data.product_name}</Text>
@@ -279,7 +292,7 @@ function ProductView({ data }: { data: ProductData }) {
           <SectionHeader icon="thumbs-up-outline" title="Pros" />
           {data.pros.map((p, i) => (
             <View key={i} style={styles.bulletRow}>
-              <Ionicons name="checkmark" size={14} color={COLORS.success} style={{ marginTop: 3 }} />
+              <Ionicons name="checkmark" size={14} color={c.success} style={{ marginTop: 3 }} />
               <Text style={styles.bulletText}>{p}</Text>
             </View>
           ))}
@@ -288,10 +301,10 @@ function ProductView({ data }: { data: ProductData }) {
       {data.cons.length > 0 && (
         <>
           <SectionHeader icon="thumbs-down-outline" title="Cons" />
-          {data.cons.map((c, i) => (
+          {data.cons.map((con, i) => (
             <View key={i} style={styles.bulletRow}>
-              <Ionicons name="close" size={14} color={COLORS.danger} style={{ marginTop: 3 }} />
-              <Text style={styles.bulletText}>{c}</Text>
+              <Ionicons name="close" size={14} color={c.danger} style={{ marginTop: 3 }} />
+              <Text style={styles.bulletText}>{con}</Text>
             </View>
           ))}
         </>
@@ -302,6 +315,8 @@ function ProductView({ data }: { data: ProductData }) {
 
 /* ---------- Generic ---------- */
 function GenericView({ data }: { data: GenericData }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
       <Text style={styles.title}>{data.title}</Text>
@@ -321,7 +336,7 @@ function GenericView({ data }: { data: GenericData }) {
           <SectionHeader icon="checkbox-outline" title="Action items" />
           {data.actionable_items.map((a, i) => (
             <View key={i} style={styles.bulletRow}>
-              <Ionicons name="arrow-forward" size={14} color={COLORS.primary} style={{ marginTop: 3 }} />
+              <Ionicons name="arrow-forward" size={14} color={c.primary} style={{ marginTop: 3 }} />
               <Text style={styles.bulletText}>{a}</Text>
             </View>
           ))}
@@ -333,32 +348,42 @@ function GenericView({ data }: { data: GenericData }) {
 
 /* ---------- Shared bits ---------- */
 function MetaRow({ children }: { children: React.ReactNode }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return <View style={styles.metaRow}>{children}</View>;
 }
 function Meta({ icon, label }: { icon: any; label: string }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View style={styles.metaPill}>
-      <Ionicons name={icon} size={13} color={COLORS.primary} />
+      <Ionicons name={icon} size={13} color={c.primary} />
       <Text style={styles.metaText}>{label}</Text>
     </View>
   );
 }
 function Chip({ label }: { label: string }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return <View style={styles.chip}><Text style={styles.chipText}>{label}</Text></View>;
 }
 function SectionHeader({ icon, title }: { icon: any; title: string }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View style={styles.sectionHeaderRow}>
-      <Ionicons name={icon} size={16} color={COLORS.text} />
+      <Ionicons name={icon} size={16} color={c.text} />
       <Text style={styles.sectionHeader}>{title}</Text>
     </View>
   );
 }
 function Tips({ tips }: { tips: string[] }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View style={styles.tipsCard}>
       <View style={styles.sectionHeaderRow}>
-        <Ionicons name="bulb" size={15} color={COLORS.warning} />
+        <Ionicons name="bulb" size={15} color={c.warning} />
         <Text style={styles.tipsTitle}>Tips</Text>
       </View>
       {tips.map((t, i) => (
@@ -369,12 +394,14 @@ function Tips({ tips }: { tips: string[] }) {
 }
 
 function OriginalView({ item }: { item: SavedItem }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
       {item.source_creator_handle && (
         <View style={styles.creatorRow}>
           <View style={styles.creatorAvatar}>
-            <Ionicons name="person" size={16} color={COLORS.textSecondary} />
+            <Ionicons name="person" size={16} color={c.textSecondary} />
           </View>
           <Text style={styles.creatorHandle}>@{item.source_creator_handle}</Text>
         </View>
@@ -388,10 +415,10 @@ function OriginalView({ item }: { item: SavedItem }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
-  notFound: { color: COLORS.textSecondary, fontSize: FONT_SIZE.md },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.background },
+  notFound: { color: c.textSecondary, fontSize: FONT_SIZE.md },
 
   topBar: {
     paddingTop: Platform.OS === 'ios' ? 56 : 44,
@@ -401,70 +428,70 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', gap: SPACING.sm },
   iconBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.white, alignItems: 'center', justifyContent: 'center',
     ...SHADOW.sm,
   },
 
   viewToggle: {
     flexDirection: 'row', marginHorizontal: SPACING.md, marginBottom: SPACING.md,
-    backgroundColor: COLORS.surfaceAlt, borderRadius: BORDER_RADIUS.md, padding: 4,
+    backgroundColor: c.surfaceAlt, borderRadius: BORDER_RADIUS.md, padding: 4,
   },
   viewTab: {
     flex: 1, flexDirection: 'row', gap: 5, paddingVertical: 9,
     borderRadius: BORDER_RADIUS.sm, alignItems: 'center', justifyContent: 'center',
   },
-  viewTabActive: { backgroundColor: COLORS.white, ...SHADOW.sm },
-  viewTabText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, fontWeight: '600' },
-  viewTabTextActive: { color: COLORS.text },
+  viewTabActive: { backgroundColor: c.white, ...SHADOW.sm },
+  viewTabText: { fontSize: FONT_SIZE.sm, color: c.textSecondary, fontWeight: '600' },
+  viewTabTextActive: { color: c.text },
 
   content: { paddingHorizontal: SPACING.md, paddingBottom: 120 },
-  summary: { fontSize: FONT_SIZE.md, color: COLORS.text, lineHeight: 24, marginBottom: SPACING.md },
+  summary: { fontSize: FONT_SIZE.md, color: c.text, lineHeight: 24, marginBottom: SPACING.md },
 
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: SPACING.md },
-  tag: { backgroundColor: COLORS.primaryLight, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
-  tagText: { fontSize: FONT_SIZE.xs, color: COLORS.primary, fontWeight: '700' },
+  tag: { backgroundColor: c.primaryLight, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  tagText: { fontSize: FONT_SIZE.xs, color: c.primary, fontWeight: '700' },
 
   stateCard: { alignItems: 'center', padding: SPACING.xl, gap: SPACING.md, marginTop: SPACING.xl },
-  stateText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center' },
+  stateText: { color: c.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center' },
 
-  title: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginBottom: SPACING.sm, letterSpacing: -0.5 },
+  title: { fontSize: 24, fontWeight: '800', color: c.text, marginBottom: SPACING.sm, letterSpacing: -0.5 },
 
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: SPACING.sm },
   metaPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.full,
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.full,
     paddingHorizontal: 10, paddingVertical: 5, ...SHADOW.sm,
   },
-  metaText: { fontSize: FONT_SIZE.xs, color: COLORS.text, fontWeight: '600', textTransform: 'capitalize' },
+  metaText: { fontSize: FONT_SIZE.xs, color: c.text, fontWeight: '600', textTransform: 'capitalize' },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: SPACING.sm },
-  chip: { backgroundColor: COLORS.surfaceAlt, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
-  chipText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, fontWeight: '600', textTransform: 'capitalize' },
+  chip: { backgroundColor: c.surfaceAlt, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  chipText: { fontSize: FONT_SIZE.xs, color: c.textSecondary, fontWeight: '600', textTransform: 'capitalize' },
 
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: SPACING.lg, marginBottom: SPACING.sm },
-  sectionHeader: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: COLORS.text },
+  sectionHeader: { fontSize: FONT_SIZE.lg, fontWeight: '700', color: c.text },
 
-  paragraph: { fontSize: FONT_SIZE.sm, color: COLORS.text, lineHeight: 22 },
+  paragraph: { fontSize: FONT_SIZE.sm, color: c.text, lineHeight: 22 },
 
   bulletRow: { flexDirection: 'row', gap: 8, marginBottom: 6, alignItems: 'flex-start' },
-  bulletDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: COLORS.primary, marginTop: 8 },
-  bulletText: { flex: 1, fontSize: FONT_SIZE.sm, color: COLORS.text, lineHeight: 21 },
-  bulletNote: { color: COLORS.textTertiary, fontSize: FONT_SIZE.xs },
+  bulletDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.primary, marginTop: 8 },
+  bulletText: { flex: 1, fontSize: FONT_SIZE.sm, color: c.text, lineHeight: 21 },
+  bulletNote: { color: c.textTertiary, fontSize: FONT_SIZE.xs },
 
   step: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
   stepNum: {
-    width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.primary,
+    width: 26, height: 26, borderRadius: 13, backgroundColor: c.primary,
     textAlign: 'center', lineHeight: 26, color: '#fff', fontWeight: '700', fontSize: FONT_SIZE.sm, overflow: 'hidden',
   },
-  stepText: { flex: 1, fontSize: FONT_SIZE.sm, color: COLORS.text, lineHeight: 22, paddingTop: 3 },
+  stepText: { flex: 1, fontSize: FONT_SIZE.sm, color: c.text, lineHeight: 22, paddingTop: 3 },
 
   exerciseCard: {
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md,
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md, marginBottom: SPACING.sm, ...SHADOW.sm,
   },
-  exerciseName: { fontSize: FONT_SIZE.md, fontWeight: '700', color: COLORS.text },
-  exerciseMeta: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '600', marginTop: 2 },
-  exerciseNote: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginTop: 4 },
+  exerciseName: { fontSize: FONT_SIZE.md, fontWeight: '700', color: c.text },
+  exerciseMeta: { fontSize: FONT_SIZE.sm, color: c.primary, fontWeight: '600', marginTop: 2 },
+  exerciseNote: { fontSize: FONT_SIZE.xs, color: c.textSecondary, marginTop: 4 },
 
   tipsCard: {
     backgroundColor: '#FFFBEB', borderRadius: BORDER_RADIUS.md,
@@ -475,16 +502,16 @@ const styles = StyleSheet.create({
 
   creatorRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
   creatorAvatar: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.surfaceAlt,
+    width: 36, height: 36, borderRadius: 18, backgroundColor: c.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  creatorHandle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: COLORS.text },
-  hashtags: { fontSize: FONT_SIZE.sm, color: COLORS.primary, marginTop: SPACING.sm, lineHeight: 22 },
+  creatorHandle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: c.text },
+  hashtags: { fontSize: FONT_SIZE.sm, color: c.primary, marginTop: SPACING.sm, lineHeight: 22 },
 
   cookModeButton: {
     position: 'absolute', bottom: 28, left: SPACING.md, right: SPACING.md,
     flexDirection: 'row', gap: SPACING.sm,
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: c.primary, borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md, alignItems: 'center', justifyContent: 'center',
     ...SHADOW.primary,
   },

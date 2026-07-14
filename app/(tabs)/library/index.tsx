@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Platform,
@@ -7,7 +7,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../../../src/store/library';
 import { useAuthStore } from '../../../src/store/auth';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT } from '../../../src/constants';
+import { useColors } from '../../../src/hooks/useColors';
+import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
 import type { Category } from '../../../src/types';
 
 const CATEGORY_COLORS = [
@@ -25,6 +26,8 @@ const CATEGORY_COLORS = [
 ];
 
 export default function LibraryScreen() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const { categories, loading, fetchCategories, fetchItems, items } = useLibraryStore();
   const { user } = useAuthStore();
 
@@ -43,7 +46,7 @@ export default function LibraryScreen() {
   if (loading && categories.length === 0) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={COLORS.primary} size="large" />
+        <ActivityIndicator color={c.primary} size="large" />
       </View>
     );
   }
@@ -61,7 +64,7 @@ export default function LibraryScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={() => { fetchCategories(); fetchItems(); }}
-            tintColor={COLORS.primary}
+            tintColor={c.primary}
           />
         }
         ListHeaderComponent={
@@ -74,10 +77,10 @@ export default function LibraryScreen() {
               </View>
               <View style={styles.headerBtns}>
                 <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/manage-categories' as never)}>
-                  <Ionicons name="albums-outline" size={20} color={COLORS.text} />
+                  <Ionicons name="albums-outline" size={20} color={c.text} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.notifBtn}>
-                  <Ionicons name="notifications-outline" size={22} color={COLORS.text} />
+                  <Ionicons name="notifications-outline" size={22} color={c.text} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -85,7 +88,7 @@ export default function LibraryScreen() {
             {/* Stats row */}
             <View style={styles.statsRow}>
               <View style={styles.statPill}>
-                <Ionicons name="bookmark" size={14} color={COLORS.primary} />
+                <Ionicons name="bookmark" size={14} color={c.primary} />
                 <Text style={styles.statText}>{items.length} saves</Text>
               </View>
               <View style={styles.statPill}>
@@ -112,7 +115,7 @@ export default function LibraryScreen() {
               <Text style={styles.cardName} numberOfLines={2}>{cat.name}</Text>
               <View style={styles.cardFooter}>
                 <Text style={styles.cardCount}>{count} saves</Text>
-                <Ionicons name="chevron-forward" size={13} color={COLORS.textTertiary} />
+                <Ionicons name="chevron-forward" size={13} color={c.textTertiary} />
               </View>
             </TouchableOpacity>
           );
@@ -120,7 +123,7 @@ export default function LibraryScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="bookmark-outline" size={40} color={COLORS.textTertiary} />
+              <Ionicons name="bookmark-outline" size={40} color={c.textTertiary} />
             </View>
             <Text style={styles.emptyTitle}>Nothing saved yet</Text>
             <Text style={styles.emptyText}>Tap the + button to add your first save, or share from any app.</Text>
@@ -131,38 +134,38 @@ export default function LibraryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.background },
   listContent: { paddingBottom: TAB_BAR_HEIGHT + 16, paddingHorizontal: SPACING.md },
 
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingTop: Platform.OS === 'ios' ? 60 : 48, marginBottom: SPACING.md,
   },
-  greeting: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, fontWeight: '500', marginBottom: 2 },
-  title: { fontSize: 28, fontWeight: '800', color: COLORS.text, letterSpacing: -0.5 },
+  greeting: { fontSize: FONT_SIZE.sm, color: c.textSecondary, fontWeight: '500', marginBottom: 2 },
+  title: { fontSize: 28, fontWeight: '800', color: c.text, letterSpacing: -0.5 },
   headerBtns: { flexDirection: 'row', gap: SPACING.sm },
   notifBtn: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.white, alignItems: 'center', justifyContent: 'center',
     ...SHADOW.sm,
   },
 
   statsRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.lg },
   statPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.full,
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.full,
     paddingVertical: 8, paddingHorizontal: SPACING.md,
     ...SHADOW.sm,
   },
-  statText: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: COLORS.text },
+  statText: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: c.text },
 
-  sectionLabel: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: COLORS.textTertiary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: SPACING.sm },
+  sectionLabel: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: c.textTertiary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: SPACING.sm },
 
   row: { gap: SPACING.sm, marginBottom: SPACING.sm },
   card: {
-    flex: 1, backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.lg,
+    flex: 1, backgroundColor: c.white, borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md, minHeight: 120,
     ...SHADOW.sm,
   },
@@ -172,16 +175,16 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   cardEmoji: { fontSize: 22 },
-  cardName: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.text, flex: 1, lineHeight: 18 },
+  cardName: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: c.text, flex: 1, lineHeight: 18 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: SPACING.xs },
-  cardCount: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, fontWeight: '500' },
+  cardCount: { fontSize: FONT_SIZE.xs, color: c.textTertiary, fontWeight: '500' },
 
   empty: { alignItems: 'center', paddingTop: SPACING.xxl, paddingHorizontal: SPACING.xl },
   emptyIcon: {
     width: 80, height: 80, borderRadius: 24,
-    backgroundColor: COLORS.surfaceAlt, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.surfaceAlt, alignItems: 'center', justifyContent: 'center',
     marginBottom: SPACING.lg,
   },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.sm },
-  emptyText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: c.text, marginBottom: SPACING.sm },
+  emptyText: { fontSize: FONT_SIZE.sm, color: c.textSecondary, textAlign: 'center', lineHeight: 20 },
 });

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { useAuthStore } from '../../src/store/auth';
-import { DEFAULT_CATEGORIES, COLORS, SPACING, FONT_SIZE, BORDER_RADIUS } from '../../src/constants';
+import { useColors } from '../../src/hooks/useColors';
+import { DEFAULT_CATEGORIES, SPACING, FONT_SIZE, BORDER_RADIUS, type ColorScheme } from '../../src/constants';
 
 const USAGE_OPTIONS = [
   { label: 'Just organize my saves', value: 'organize', emoji: '📂' },
@@ -20,6 +21,8 @@ const VIBE_OPTIONS = [
 ];
 
 export default function FinishOnboardingScreen() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const params = useLocalSearchParams<{ interests: string; platforms: string }>();
   const interests = params.interests ? params.interests.split(',').filter(Boolean) : [];
   const showDietary = interests.includes('Recipes');
@@ -160,7 +163,7 @@ export default function FinishOnboardingScreen() {
           activeOpacity={0.9}
         >
           {loading
-            ? <ActivityIndicator color={COLORS.white} />
+            ? <ActivityIndicator color={c.white} />
             : <Text style={styles.buttonText}>Get started 🎉</Text>
           }
         </TouchableOpacity>
@@ -172,39 +175,39 @@ export default function FinishOnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   scroll: { padding: SPACING.xl, paddingTop: Platform.OS === 'ios' ? 60 : 48, paddingBottom: SPACING.md },
   header: { marginBottom: SPACING.md },
-  step: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '600', marginBottom: SPACING.xs },
-  title: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: COLORS.text },
-  question: { fontSize: FONT_SIZE.md, fontWeight: '700', color: COLORS.text, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  step: { fontSize: FONT_SIZE.sm, color: c.primary, fontWeight: '600', marginBottom: SPACING.xs },
+  title: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: c.text },
+  question: { fontSize: FONT_SIZE.md, fontWeight: '700', color: c.text, marginTop: SPACING.lg, marginBottom: SPACING.sm },
   options: { gap: SPACING.sm },
   option: {
     flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
-    backgroundColor: COLORS.white, borderWidth: 1.5, borderColor: COLORS.border,
+    backgroundColor: c.white, borderWidth: 1.5, borderColor: c.border,
     borderRadius: BORDER_RADIUS.md, padding: SPACING.md,
   },
-  optionActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
+  optionActive: { backgroundColor: c.primaryLight, borderColor: c.primary },
   optionEmoji: { fontSize: 22 },
-  optionLabel: { fontSize: FONT_SIZE.md, color: COLORS.text, fontWeight: '500', flex: 1 },
-  optionLabelActive: { color: COLORS.primary, fontWeight: '700' },
+  optionLabel: { fontSize: FONT_SIZE.md, color: c.text, fontWeight: '500', flex: 1 },
+  optionLabelActive: { color: c.primary, fontWeight: '700' },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   chip: {
-    backgroundColor: COLORS.white, borderWidth: 1.5, borderColor: COLORS.border,
+    backgroundColor: c.white, borderWidth: 1.5, borderColor: c.border,
     borderRadius: BORDER_RADIUS.full, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md,
   },
-  chipActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
-  chipLabel: { fontSize: FONT_SIZE.sm, color: COLORS.text, fontWeight: '500' },
-  chipLabelActive: { color: COLORS.primary, fontWeight: '700' },
+  chipActive: { backgroundColor: c.primaryLight, borderColor: c.primary },
+  chipLabel: { fontSize: FONT_SIZE.sm, color: c.text, fontWeight: '500' },
+  chipLabelActive: { color: c.primary, fontWeight: '700' },
   error: { color: '#EF4444', fontSize: FONT_SIZE.sm, marginTop: SPACING.md },
   footer: { padding: SPACING.xl, paddingTop: SPACING.sm },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: BORDER_RADIUS.md, padding: SPACING.md, alignItems: 'center',
   },
-  buttonDisabled: { backgroundColor: COLORS.border },
-  buttonText: { color: COLORS.white, fontSize: FONT_SIZE.md, fontWeight: '700' },
+  buttonDisabled: { backgroundColor: c.border },
+  buttonText: { color: c.white, fontSize: FONT_SIZE.md, fontWeight: '700' },
   skip: { alignItems: 'center', paddingTop: SPACING.md },
-  skipText: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm },
+  skipText: { color: c.textSecondary, fontSize: FONT_SIZE.sm },
 });

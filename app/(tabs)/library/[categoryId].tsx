@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Platform,
@@ -6,10 +6,13 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../../../src/store/library';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT } from '../../../src/constants';
+import { useColors } from '../../../src/hooks/useColors';
+import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
 import type { SavedItem } from '../../../src/types';
 
 export default function CategoryScreen() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const { categoryId, name } = useLocalSearchParams<{ categoryId: string; name: string }>();
   const { items, loading, fetchItems } = useLibraryStore();
 
@@ -29,7 +32,7 @@ export default function CategoryScreen() {
             {/* Top bar */}
             <View style={styles.topBar}>
               <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-                <Ionicons name="chevron-back" size={20} color={COLORS.text} />
+                <Ionicons name="chevron-back" size={20} color={c.text} />
               </TouchableOpacity>
             </View>
 
@@ -37,13 +40,13 @@ export default function CategoryScreen() {
             <View style={styles.header}>
               <Text style={styles.categoryName}>{name}</Text>
               <View style={styles.countBadge}>
-                <Ionicons name="bookmark" size={12} color={COLORS.primary} />
+                <Ionicons name="bookmark" size={12} color={c.primary} />
                 <Text style={styles.countText}>{categoryItems.length} saves</Text>
               </View>
             </View>
 
             {loading && (
-              <ActivityIndicator color={COLORS.primary} style={{ marginVertical: SPACING.xl }} />
+              <ActivityIndicator color={c.primary} style={{ marginVertical: SPACING.xl }} />
             )}
           </View>
         }
@@ -52,7 +55,7 @@ export default function CategoryScreen() {
           !loading ? (
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="folder-open-outline" size={36} color={COLORS.textTertiary} />
+                <Ionicons name="folder-open-outline" size={36} color={c.textTertiary} />
               </View>
               <Text style={styles.emptyTitle}>Nothing here yet</Text>
               <Text style={styles.emptyText}>Save something and it'll appear in this category.</Text>
@@ -65,6 +68,8 @@ export default function CategoryScreen() {
 }
 
 function SavedItemRow({ item }: { item: SavedItem }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <TouchableOpacity
       style={styles.card}
@@ -100,7 +105,7 @@ function SavedItemRow({ item }: { item: SavedItem }) {
 
       <View style={styles.cardFooter}>
         <Text style={styles.viewText}>View details</Text>
-        <Ionicons name="chevron-forward" size={13} color={COLORS.textTertiary} />
+        <Ionicons name="chevron-forward" size={13} color={c.textTertiary} />
       </View>
     </TouchableOpacity>
   );
@@ -117,8 +122,8 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   list: { paddingBottom: TAB_BAR_HEIGHT + 16, paddingHorizontal: SPACING.md },
 
   topBar: {
@@ -129,7 +134,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.white,
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOW.sm,
@@ -142,7 +147,7 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 28,
     fontWeight: '800',
-    color: COLORS.text,
+    color: c.text,
     letterSpacing: -0.5,
   },
   countBadge: {
@@ -150,7 +155,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.white,
     borderRadius: BORDER_RADIUS.full,
     paddingVertical: 5,
     paddingHorizontal: 12,
@@ -159,11 +164,11 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: FONT_SIZE.sm,
     fontWeight: '600',
-    color: COLORS.text,
+    color: c.text,
   },
 
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.white,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
@@ -179,7 +184,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: COLORS.surfaceAlt,
+    backgroundColor: c.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -188,26 +193,26 @@ const styles = StyleSheet.create({
   cardPlatform: {
     fontSize: FONT_SIZE.xs,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: c.primary,
     textTransform: 'capitalize',
   },
-  cardDate: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, marginTop: 1 },
+  cardDate: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: 1 },
 
   cardSummary: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.text,
+    color: c.text,
     lineHeight: 20,
     marginBottom: SPACING.sm,
   },
 
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: SPACING.sm },
   tag: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: c.primaryLight,
     borderRadius: BORDER_RADIUS.full,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  tagText: { fontSize: FONT_SIZE.xs, color: COLORS.primary, fontWeight: '600' },
+  tagText: { fontSize: FONT_SIZE.xs, color: c.primary, fontWeight: '600' },
 
   cardFooter: {
     flexDirection: 'row',
@@ -216,9 +221,9 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingTop: SPACING.xs,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: c.border,
   },
-  viewText: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, fontWeight: '500' },
+  viewText: { fontSize: FONT_SIZE.xs, color: c.textTertiary, fontWeight: '500' },
 
   empty: {
     alignItems: 'center',
@@ -230,15 +235,15 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 22,
-    backgroundColor: COLORS.surfaceAlt,
+    backgroundColor: c.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.sm,
   },
-  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: COLORS.text },
+  emptyTitle: { fontSize: FONT_SIZE.xl, fontWeight: '700', color: c.text },
   emptyText: {
     fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },

@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../src/constants';
+import { useColors } from '../../src/hooks/useColors';
+import { type ColorScheme } from '../../src/constants';
 
 type TabBarProps = {
   state: { index: number; routes: { key: string; name: string }[] };
@@ -14,8 +16,6 @@ type TabBarProps = {
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const INACTIVE = '#9AA3B2';
-
 const TABS: Record<string, { off: IconName; on: IconName; label: string }> = {
   'library/index': { off: 'bookmark-outline', on: 'bookmark', label: 'Library' },
   search: { off: 'search-outline', on: 'search', label: 'Search' },
@@ -26,6 +26,8 @@ const TABS: Record<string, { off: IconName; on: IconName; label: string }> = {
 // Custom tab bar — full control over spacing and press feedback (a subtle opacity
 // dim on tap instead of the default dark Android ripple).
 function TabBar({ state, navigation }: TabBarProps) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
@@ -60,7 +62,7 @@ function TabBar({ state, navigation }: TabBarProps) {
                 {!compact && <Text style={styles.pillLabel} numberOfLines={1}>{meta.label}</Text>}
               </View>
             ) : (
-              <Ionicons name={meta.off} size={23} color={INACTIVE} />
+              <Ionicons name={meta.off} size={23} color={c.textTertiary} />
             )}
           </Pressable>
         );
@@ -81,13 +83,13 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
   bar: {
     position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
     height: 64,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.white,
     borderRadius: 22,
     paddingHorizontal: 10,
     shadowColor: '#1E293B',
@@ -105,11 +107,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: 999,
     paddingVertical: 9,
     paddingHorizontal: 15,
-    shadowColor: COLORS.primary,
+    shadowColor: c.primary,
     shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },

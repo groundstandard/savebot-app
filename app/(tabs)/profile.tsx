@@ -1,32 +1,37 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
 import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT } from '../../src/constants';
+import { useColors } from '../../src/hooks/useColors';
+import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 function SettingsRow({ icon, label, value, onPress, danger }: {
   icon: IconName; label: string; value?: string; onPress?: () => void; danger?: boolean;
 }) {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.rowIcon, danger && styles.rowIconDanger]}>
-        <Ionicons name={icon} size={18} color={danger ? COLORS.danger : COLORS.primary} />
+        <Ionicons name={icon} size={18} color={danger ? c.danger : c.primary} />
       </View>
       <Text style={[styles.rowLabel, danger && styles.rowLabelDanger]}>{label}</Text>
       <View style={styles.rowRight}>
         {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-        {!danger && <Ionicons name="chevron-forward" size={16} color={COLORS.textTertiary} />}
+        {!danger && <Ionicons name="chevron-forward" size={16} color={c.textTertiary} />}
       </View>
     </TouchableOpacity>
   );
 }
 
 export default function ProfileScreen() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const { user, signOut } = useAuthStore();
   const { items } = useLibraryStore();
 
@@ -55,7 +60,7 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{user?.display_name ?? 'User'}</Text>
         <Text style={styles.email}>{user?.email}</Text>
         <View style={[styles.badge, isPro && styles.badgePro]}>
-          <Ionicons name={isPro ? 'star' : 'person-outline'} size={12} color={isPro ? '#92400E' : COLORS.textSecondary} />
+          <Ionicons name={isPro ? 'star' : 'person-outline'} size={12} color={isPro ? '#92400E' : c.textSecondary} />
           <Text style={[styles.badgeText, isPro && styles.badgeTextPro]}>{isPro ? 'Pro' : 'Free Plan'}</Text>
         </View>
       </View>
@@ -63,9 +68,9 @@ export default function ProfileScreen() {
       {/* Stats */}
       <View style={styles.statsCard}>
         {[
-          { label: 'Total saves', value: totalSaves, icon: 'bookmark' as IconName, color: COLORS.primary },
+          { label: 'Total saves', value: totalSaves, icon: 'bookmark' as IconName, color: c.primary },
           { label: 'Favorites', value: favorites, icon: 'heart' as IconName, color: '#EC4899' },
-          { label: 'Platforms', value: platforms, icon: 'apps' as IconName, color: COLORS.success },
+          { label: 'Platforms', value: platforms, icon: 'apps' as IconName, color: c.success },
         ].map((s, i) => (
           <View key={i} style={[styles.stat, i < 2 && styles.statBorder]}>
             <Ionicons name={s.icon} size={16} color={s.color} style={styles.statIcon} />
@@ -137,8 +142,8 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.background },
   scroll: { paddingBottom: TAB_BAR_HEIGHT + 16 },
 
   heroCard: {
@@ -149,37 +154,37 @@ const styles = StyleSheet.create({
   },
   avatarWrap: {
     width: 88, height: 88, borderRadius: 28,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: SPACING.md,
     ...SHADOW.primary,
   },
   avatarText: { fontSize: 36, fontWeight: '800', color: '#fff' },
-  name: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: COLORS.text, letterSpacing: -0.5 },
-  email: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 4, marginBottom: SPACING.md },
+  name: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: c.text, letterSpacing: -0.5 },
+  email: { fontSize: FONT_SIZE.sm, color: c.textSecondary, marginTop: 4, marginBottom: SPACING.md },
   badge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 5,
-    borderRadius: BORDER_RADIUS.full, backgroundColor: COLORS.surfaceAlt,
+    borderRadius: BORDER_RADIUS.full, backgroundColor: c.surfaceAlt,
   },
   badgePro: { backgroundColor: '#FEF3C7' },
-  badgeText: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: COLORS.textSecondary },
+  badgeText: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: c.textSecondary },
   badgeTextPro: { color: '#92400E' },
 
   statsCard: {
     flexDirection: 'row', marginHorizontal: SPACING.md,
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.md, ...SHADOW.sm,
   },
   stat: { flex: 1, alignItems: 'center', paddingVertical: SPACING.lg },
-  statBorder: { borderRightWidth: 1, borderRightColor: COLORS.border },
+  statBorder: { borderRightWidth: 1, borderRightColor: c.border },
   statIcon: { marginBottom: 4 },
-  statValue: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: COLORS.text, letterSpacing: -0.5 },
-  statLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, marginTop: 2, fontWeight: '500' },
+  statValue: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: c.text, letterSpacing: -0.5 },
+  statLabel: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: 2, fontWeight: '500' },
 
   upgradeCard: {
     marginHorizontal: SPACING.md, marginBottom: SPACING.md,
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: c.primary, borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg, flexDirection: 'row',
     alignItems: 'center', justifyContent: 'space-between',
     ...SHADOW.primary,
@@ -199,21 +204,21 @@ const styles = StyleSheet.create({
   upgradePriceSub: { fontSize: FONT_SIZE.xs, color: 'rgba(255,255,255,0.7)', marginTop: -2 },
 
   section: { marginBottom: SPACING.md },
-  sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 1, marginHorizontal: SPACING.md, marginBottom: 8 },
+  sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: c.textTertiary, textTransform: 'uppercase', letterSpacing: 1, marginHorizontal: SPACING.md, marginBottom: 8 },
   sectionCard: {
-    marginHorizontal: SPACING.md, backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.md, backgroundColor: c.white,
     borderRadius: BORDER_RADIUS.lg, ...SHADOW.sm, overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14 },
   rowIcon: {
     width: 34, height: 34, borderRadius: 10,
-    backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center',
     marginRight: SPACING.md,
   },
   rowIconDanger: { backgroundColor: '#FEF2F2' },
-  rowLabel: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: '500', color: COLORS.text },
-  rowLabelDanger: { color: COLORS.danger },
+  rowLabel: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: '500', color: c.text },
+  rowLabelDanger: { color: c.danger },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  rowValue: { fontSize: FONT_SIZE.sm, color: COLORS.textTertiary },
-  divider: { height: 1, backgroundColor: COLORS.border, marginLeft: 62 },
+  rowValue: { fontSize: FONT_SIZE.sm, color: c.textTertiary },
+  divider: { height: 1, backgroundColor: c.border, marginLeft: 62 },
 });

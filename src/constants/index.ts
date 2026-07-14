@@ -26,6 +26,37 @@ export const COLORS = {
   primaryDarkOld: '#4F46E5',
 };
 
+export type ColorScheme = typeof COLORS;
+
+// Dark palette — same keys as COLORS. "white"/"card"/"surface" map to dark card
+// surfaces (they're used as card backgrounds); literal '#fff' text stays white.
+export const DARK_COLORS: ColorScheme = {
+  primary: '#818CF8',
+  primaryDark: '#6366F1',
+  primaryLight: '#312E81',
+  secondary: '#A78BFA',
+  accent: '#22D3EE',
+  success: '#34D399',
+  warning: '#FBBF24',
+  danger: '#F87171',
+
+  background: '#0B1120',
+  surface: '#1E293B',
+  surfaceAlt: '#0F172A',
+
+  text: '#F1F5F9',
+  textSecondary: '#94A3B8',
+  textTertiary: '#6B7687',
+
+  border: '#334155',
+  borderLight: '#1E293B',
+
+  white: '#1E293B',
+  card: '#1E293B',
+
+  primaryDarkOld: '#6366F1',
+};
+
 export const SPACING = {
   xs: 4,
   sm: 8,

@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '../src/components/ScreenHeader';
-import { COLORS, SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW } from '../src/constants';
+import { useColors } from '../src/hooks/useColors';
+import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../src/constants';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const LINKS: { icon: IconName; label: string; url: string }[] = [
@@ -12,6 +14,8 @@ const LINKS: { icon: IconName; label: string; url: string }[] = [
 ];
 
 export default function About() {
+  const c = useColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
@@ -31,9 +35,9 @@ export default function About() {
         <View style={styles.card}>
           {LINKS.map((l, i) => (
             <TouchableOpacity key={l.label} style={[styles.row, i < LINKS.length - 1 && styles.divider]} onPress={() => Linking.openURL(l.url)} activeOpacity={0.7}>
-              <View style={styles.rowIcon}><Ionicons name={l.icon} size={18} color={COLORS.primary} /></View>
+              <View style={styles.rowIcon}><Ionicons name={l.icon} size={18} color={c.primary} /></View>
               <Text style={styles.rowLabel}>{l.label}</Text>
-              <Ionicons name="open-outline" size={18} color={COLORS.textTertiary} />
+              <Ionicons name="open-outline" size={18} color={c.textTertiary} />
             </TouchableOpacity>
           ))}
         </View>
@@ -44,19 +48,19 @@ export default function About() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ColorScheme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.background },
   body: { padding: SPACING.lg, alignItems: 'center' },
-  logo: { width: 80, height: 80, borderRadius: 24, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', ...SHADOW.primary },
+  logo: { width: 80, height: 80, borderRadius: 24, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center', ...SHADOW.primary },
   logoText: { fontSize: 40, fontWeight: '900', color: '#fff' },
-  name: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: COLORS.text, marginTop: SPACING.md },
-  tag: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 2 },
-  version: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, marginTop: 6 },
-  blurb: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 21, marginVertical: SPACING.xl, paddingHorizontal: SPACING.sm },
-  card: { alignSelf: 'stretch', backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.lg, ...SHADOW.sm, overflow: 'hidden' },
+  name: { fontSize: FONT_SIZE.xxl, fontWeight: '800', color: c.text, marginTop: SPACING.md },
+  tag: { fontSize: FONT_SIZE.sm, color: c.textSecondary, marginTop: 2 },
+  version: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: 6 },
+  blurb: { fontSize: FONT_SIZE.sm, color: c.textSecondary, textAlign: 'center', lineHeight: 21, marginVertical: SPACING.xl, paddingHorizontal: SPACING.sm },
+  card: { alignSelf: 'stretch', backgroundColor: c.white, borderRadius: BORDER_RADIUS.lg, ...SHADOW.sm, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, gap: SPACING.sm },
-  divider: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  rowIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  rowLabel: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: '600', color: COLORS.text },
-  copyright: { fontSize: FONT_SIZE.xs, color: COLORS.textTertiary, marginTop: SPACING.xl },
+  divider: { borderBottomWidth: 1, borderBottomColor: c.border },
+  rowIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  rowLabel: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: '600', color: c.text },
+  copyright: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: SPACING.xl },
 });
