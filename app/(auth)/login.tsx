@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useAuthStore } from '../../src/store/auth';
@@ -20,6 +20,7 @@ export default function LoginScreen() {
   const [emailFocus, setEmailFocus] = useState(false);
   const [passFocus, setPassFocus] = useState(false);
   const authenticating = useAuthStore((s) => s.authenticating);
+  const session = useAuthStore((s) => s.session);
 
   async function handleLogin() {
     setErrorMsg('');
@@ -33,6 +34,9 @@ export default function LoginScreen() {
     router.replace('/');
   }
 
+  // Already signed in (e.g. session just landed) — leave immediately so the login
+  // form never flashes while the stack transitions to the app.
+  if (session) return <Redirect href="/(tabs)/library" />;
   if (loading || authenticating) return <LoadingScreen message="Signing you in…" />;
 
   return (
