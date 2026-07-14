@@ -52,7 +52,7 @@ function TabBar({ state, navigation }: TabBarProps) {
             key={route.key}
             onPress={onPress}
             android_ripple={null}
-            style={({ pressed }) => [styles.item, pressed && { opacity: 0.55 }]}
+            style={({ pressed }) => [styles.item, { flex: focused ? 2 : 1 }, pressed && { opacity: 0.55 }]}
           >
             {focused ? (
               <View style={styles.pill}>
@@ -97,7 +97,6 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   item: {
-    flex: 1,
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
