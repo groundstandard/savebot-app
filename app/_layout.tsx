@@ -3,11 +3,13 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '../src/hooks/useAuth';
+import { useSaveNotifications } from '../src/hooks/useSaveNotifications';
 import { useThemeStore } from '../src/store/theme';
 import { useIsDark } from '../src/hooks/useColors';
 
 export default function RootLayout() {
   useAuth(); // Initialize auth listener at root
+  useSaveNotifications(); // Local "✓ Saved" notification when processing completes
   const loadTheme = useThemeStore((s) => s.load);
   const isDark = useIsDark();
   useEffect(() => { loadTheme(); }, []);
