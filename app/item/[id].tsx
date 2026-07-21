@@ -1,17 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
   ActivityIndicator, Linking, Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
-import { toggleFavorite } from '../../src/lib/api/saveItem';
+import { toggleFavorite, retryProcessing } from '../../src/lib/api/saveItem';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../../src/constants';
 import type {
-  SavedItem, RecipeData, WorkoutData, TravelData, ProductData, GenericData,
+  SavedItem, SavedItemMedia, RecipeData, WorkoutData, TravelData, ProductData, GenericData,
 } from '../../src/types';
+
+/** Resolve a private-bucket media path to a temporary signed URL. */
+async function signedMediaUrl(media?: SavedItemMedia): Promise<string | null> {
+  if (!media?.storage_path) return null;
+  const [bucket, ...rest] = media.storage_path.split('/');
+  const { data } = await supabase.storage.from(bucket).createSignedUrl(rest.join('/'), 3600);
+  return data?.signedUrl ?? null;
+}
 
 type ViewMode = 'clean' | 'original';
 
@@ -23,27 +31,39 @@ export default function ItemDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>('clean');
   const [favorite, setFavorite] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase
+  const loadItem = useCallback(async () => {
+    const { data } = await supabase
       .from('saved_items')
       .select('*, media:saved_item_media(*), category:categories(*), subcategory:subcategories(*)')
       .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setItem(data as SavedItem);
-          setFavorite((data as SavedItem).is_favorite);
-        }
-        setLoading(false);
-      });
+      .single();
+    if (data) {
+      const saved = data as SavedItem;
+      setItem(saved);
+      setFavorite(saved.is_favorite);
+      const thumb = saved.media?.find((m) => m.media_type === 'thumbnail') ?? saved.media?.[0];
+      setThumbUrl(await signedMediaUrl(thumb));
+    }
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => { loadItem(); }, [loadItem]);
 
   async function handleFavoriteToggle() {
     if (!item) return;
     const next = !favorite;
     setFavorite(next);
     await toggleFavorite(item.id, next);
+  }
+
+  async function handleRetry() {
+    if (!item) return;
+    setItem({ ...item, processing_status: 'pending' });
+    await retryProcessing(item.id);
+    // Give the Edge Function a moment, then refresh.
+    setTimeout(() => { loadItem(); }, 4000);
   }
 
   if (loading) return <View style={styles.centered}><ActivityIndicator color={c.primary} size="large" /></View>;
@@ -92,7 +112,10 @@ export default function ItemDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {view === 'clean' ? <CleanView item={item} /> : <OriginalView item={item} />}
+        {thumbUrl && (
+          <Image source={{ uri: thumbUrl }} style={styles.hero} resizeMode="cover" />
+        )}
+        {view === 'clean' ? <CleanView item={item} onRetry={handleRetry} /> : <OriginalView item={item} />}
       </ScrollView>
 
       {isRecipe && (
@@ -109,7 +132,7 @@ export default function ItemDetailScreen() {
   );
 }
 
-function CleanView({ item }: { item: SavedItem }) {
+function CleanView({ item, onRetry }: { item: SavedItem; onRetry: () => void }) {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
   const data = item.structured_data;
@@ -127,7 +150,11 @@ function CleanView({ item }: { item: SavedItem }) {
     return (
       <View style={styles.stateCard}>
         <Ionicons name="alert-circle-outline" size={32} color={c.danger} />
-        <Text style={styles.stateText}>Analysis failed. Try re-saving this item.</Text>
+        <Text style={styles.stateText}>Analysis failed. You can try again.</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={onRetry} activeOpacity={0.85}>
+          <Ionicons name="refresh" size={16} color="#fff" />
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -445,6 +472,10 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   viewTabTextActive: { color: c.text },
 
   content: { paddingHorizontal: SPACING.md, paddingBottom: 120 },
+  hero: {
+    width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg,
+    marginBottom: SPACING.md, backgroundColor: c.surfaceAlt,
+  },
   summary: { fontSize: FONT_SIZE.md, color: c.text, lineHeight: 24, marginBottom: SPACING.md },
 
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: SPACING.md },
@@ -453,6 +484,12 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
 
   stateCard: { alignItems: 'center', padding: SPACING.xl, gap: SPACING.md, marginTop: SPACING.xl },
   stateText: { color: c.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center' },
+  retryBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: c.primary, borderRadius: BORDER_RADIUS.md,
+    paddingVertical: 10, paddingHorizontal: SPACING.lg,
+  },
+  retryText: { color: '#fff', fontSize: FONT_SIZE.sm, fontWeight: '700' },
 
   title: { fontSize: 24, fontWeight: '800', color: c.text, marginBottom: SPACING.sm, letterSpacing: -0.5 },
 
