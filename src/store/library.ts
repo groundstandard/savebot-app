@@ -23,6 +23,7 @@ interface LibraryState {
   createSubcategory: (categoryId: string, name: string) => Promise<void>;
   renameSubcategory: (id: string, name: string) => Promise<void>;
   deleteSubcategory: (id: string) => Promise<void>;
+  mergeSubcategory: (sourceId: string, targetId: string) => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -137,5 +138,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Detach items from this subcategory first (keeps them in the parent category).
     await supabase.from('saved_items').update({ subcategory_id: null }).eq('subcategory_id', id);
     await supabase.from('subcategories').delete().eq('id', id);
+  },
+
+  mergeSubcategory: async (sourceId, targetId) => {
+    // Move every save from source → target, then remove the now-empty source.
+    set((s) => ({
+      subcategories: s.subcategories.filter((x) => x.id !== sourceId),
+      items: s.items.map((i) => (i.subcategory_id === sourceId ? { ...i, subcategory_id: targetId } : i)),
+    }));
+    await supabase.from('saved_items').update({ subcategory_id: targetId }).eq('subcategory_id', sourceId);
+    await supabase.from('subcategories').delete().eq('id', sourceId);
   },
 }));

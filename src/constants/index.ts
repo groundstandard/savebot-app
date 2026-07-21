@@ -124,4 +124,33 @@ export const DEFAULT_CATEGORIES = [
   { name: 'Miscellaneous', icon: '📌' },
 ];
 
+// Default subcategory tree (PRD Section 5.4). Keyed by category name.
+export const DEFAULT_SUBCATEGORIES: Record<string, string[]> = {
+  'Recipes & Cooking': ['Breakfast', 'Lunch', 'Dinner', 'Desserts', 'Snacks', 'Drinks', 'Meal Prep', 'Baking', 'Cuisine Type'],
+  'Health & Fitness': ['Workouts', 'Nutrition', 'Mental Health', 'Yoga/Stretching', 'Running', 'Recovery'],
+  'Travel & Places': ['Destinations', 'Restaurants', 'Hotels', 'Itineraries', 'Tips', 'Budget Travel'],
+  'Home & Living': ['Decor', 'Organization', 'DIY', 'Gardening', 'Cleaning Hacks'],
+  'Fashion & Beauty': ['Outfits', 'Skincare', 'Haircare', 'Makeup', 'Shopping'],
+  'Career & Productivity': ['Job Tips', 'Tools', 'Networking', 'Side Hustles', 'Finance'],
+  'Learning & Education': ['Books', 'Courses', 'How-Tos', 'Languages', 'Skills'],
+  'Entertainment': ['Movies', 'TV Shows', 'Music', 'Podcasts', 'Games', 'Books'],
+  'Parenting & Family': ['Activities', 'Advice', 'Products', 'Education'],
+  'Shopping & Products': ['Tech', 'Home', 'Kitchen', 'Gifts', 'Deals'],
+  'Miscellaneous': [],
+};
+
+// Maps an onboarding interest (Q1) to a default category name — drives
+// post-onboarding personalization (prioritize + hide irrelevant categories).
+export const INTEREST_TO_CATEGORY: Record<string, string> = {
+  'Recipes': 'Recipes & Cooking',
+  'Workouts': 'Health & Fitness',
+  'Travel ideas': 'Travel & Places',
+  'Fashion/Beauty': 'Fashion & Beauty',
+  'Home inspo': 'Home & Living',
+  'Product recs': 'Shopping & Products',
+  'Career tips': 'Career & Productivity',
+  'Educational content': 'Learning & Education',
+  'Entertainment recs': 'Entertainment',
+};
+
 export const FREE_TIER_SAVE_LIMIT = 5;

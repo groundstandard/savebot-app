@@ -4,7 +4,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { useAuthStore } from '../../src/store/auth';
 import { useColors } from '../../src/hooks/useColors';
-import { DEFAULT_CATEGORIES, SPACING, FONT_SIZE, BORDER_RADIUS, type ColorScheme } from '../../src/constants';
+import {
+  DEFAULT_CATEGORIES, DEFAULT_SUBCATEGORIES, INTEREST_TO_CATEGORY,
+  SPACING, FONT_SIZE, BORDER_RADIUS, type ColorScheme,
+} from '../../src/constants';
 
 const USAGE_OPTIONS = [
   { label: 'Just organize my saves', value: 'organize', emoji: '📂' },
@@ -52,11 +55,46 @@ export default function FinishOnboardingScreen() {
     const { error } = await supabase.from('users').update(update).eq('id', session.user.id);
     if (error) { setErrorMsg('Could not save preferences. Try again.'); return false; }
 
-    const categoryRows = DEFAULT_CATEGORIES.map((c, i) => ({
+    // Personalize category order + visibility from the stated interests:
+    // matched categories float to the top; irrelevant ones start hidden
+    // (Miscellaneous is always kept as a catch-all).
+    const chosen = (preferences?.interests as string[] | undefined) ?? [];
+    const matched = new Set(
+      chosen.map((i) => INTEREST_TO_CATEGORY[i]).filter(Boolean) as string[]
+    );
+    const personalize = matched.size > 0;
+
+    const ordered = DEFAULT_CATEGORIES
+      .map((c, i) => ({ ...c, i }))
+      .sort((a, b) => (matched.has(a.name) ? 0 : 1) - (matched.has(b.name) ? 0 : 1) || a.i - b.i);
+
+    const categoryRows = ordered.map((c, i) => ({
       user_id: session.user.id, name: c.name, icon: c.icon,
-      sort_order: i, is_default: true, is_hidden: false,
+      sort_order: i, is_default: true,
+      is_hidden: personalize && !matched.has(c.name) && c.name !== 'Miscellaneous',
     }));
-    await supabase.from('categories').upsert(categoryRows, { onConflict: 'user_id,name' });
+
+    const { data: cats } = await supabase
+      .from('categories')
+      .upsert(categoryRows, { onConflict: 'user_id,name' })
+      .select();
+
+    // Seed the default subcategory tree for any category that has none yet.
+    if (cats && cats.length) {
+      const catIds = cats.map((c) => c.id);
+      const { data: existing } = await supabase
+        .from('subcategories').select('category_id').in('category_id', catIds);
+      const haveSubs = new Set((existing ?? []).map((r) => r.category_id));
+
+      const subRows = cats.flatMap((cat) =>
+        haveSubs.has(cat.id)
+          ? []
+          : (DEFAULT_SUBCATEGORIES[cat.name] ?? []).map((name, i) => ({
+              category_id: cat.id, name, sort_order: i, is_ai_generated: false,
+            }))
+      );
+      if (subRows.length) await supabase.from('subcategories').insert(subRows);
+    }
     return true;
   }
 

@@ -16,7 +16,7 @@ export default function CategoryScreen() {
   const { categoryId, name } = useLocalSearchParams<{ categoryId: string; name: string }>();
   const {
     items, loading, fetchItems,
-    subcategories, fetchSubcategories, createSubcategory, renameSubcategory, deleteSubcategory,
+    subcategories, fetchSubcategories, createSubcategory, renameSubcategory, deleteSubcategory, mergeSubcategory,
   } = useLibraryStore();
 
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
@@ -46,6 +46,28 @@ export default function CategoryScreen() {
     if (editName.trim()) await renameSubcategory(id, editName.trim());
     setEditingId(null);
     setEditName('');
+  }
+
+  function promptMergeSub(id: string, subName: string) {
+    const targets = subcategories.filter((s) => s.id !== id);
+    if (targets.length === 0) {
+      Alert.alert('Nothing to merge into', 'Add another subcategory first.');
+      return;
+    }
+    Alert.alert(
+      `Merge "${subName}" into…`,
+      'All saves here move to the subcategory you pick, then this one is removed.',
+      [
+        ...targets.map((t) => ({
+          text: t.name,
+          onPress: () => {
+            mergeSubcategory(id, t.id);
+            if (selectedSub === id) setSelectedSub(t.id);
+          },
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]
+    );
   }
 
   function confirmDeleteSub(id: string, subName: string) {
@@ -160,6 +182,9 @@ export default function CategoryScreen() {
                           style={styles.iconBtn}
                         >
                           <Ionicons name="pencil" size={15} color={c.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => promptMergeSub(sub.id, sub.name)} style={styles.iconBtn}>
+                          <Ionicons name="git-merge-outline" size={16} color={c.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => confirmDeleteSub(sub.id, sub.name)} style={styles.iconBtn}>
                           <Ionicons name="trash-outline" size={15} color="#EF4444" />

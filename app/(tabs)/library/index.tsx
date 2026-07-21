@@ -7,8 +7,10 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../../../src/store/library';
 import { useAuthStore } from '../../../src/store/auth';
+import { useTutorialStore } from '../../../src/store/tutorial';
 import { useColors } from '../../../src/hooks/useColors';
-import { SavedItemRow } from '../../../src/components/library/SavedItemRow';
+import { SavedItemRow, platformEmoji } from '../../../src/components/library/SavedItemRow';
+import { TutorialOverlay } from '../../../src/components/onboarding/TutorialOverlay';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
 
 const CATEGORY_COLORS = [
@@ -39,6 +41,7 @@ export default function LibraryScreen() {
   const styles = useMemo(() => makeStyles(c), [c]);
   const { categories, loading, fetchCategories, fetchItems, items } = useLibraryStore();
   const { user } = useAuthStore();
+  const { seen: tutorialSeen, loaded: tutorialLoaded, load: loadTutorial, dismiss: dismissTutorial } = useTutorialStore();
 
   const [view, setView] = useState<LibraryView>('categories');
   const [layout, setLayout] = useState<Layout>('grid');
@@ -46,6 +49,7 @@ export default function LibraryScreen() {
   useEffect(() => {
     fetchCategories();
     fetchItems();
+    loadTutorial();
   }, []);
 
   const greeting = () => {
@@ -162,7 +166,9 @@ export default function LibraryScreen() {
         renderItem={({ item, index }) => {
           if (view === 'categories') {
             const cat = item;
-            const count = items.filter((i) => i.category_id === cat.id).length;
+            const inCat = items.filter((i) => i.category_id === cat.id);
+            const count = inCat.length;
+            const recent = inCat[0]; // items are newest-first from the store
             const palette = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
 
             if (layout === 'list') {
@@ -194,6 +200,18 @@ export default function LibraryScreen() {
                   <Text style={styles.cardEmoji}>{cat.icon}</Text>
                 </View>
                 <Text style={styles.cardName} numberOfLines={2}>{cat.name}</Text>
+                {recent ? (
+                  <View style={styles.recentPreview}>
+                    <Text style={styles.recentEmoji}>{platformEmoji(recent.source_platform)}</Text>
+                    <Text style={styles.recentText} numberOfLines={1}>
+                      {recent.ai_summary ?? recent.raw_caption ?? 'Processing…'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.recentPreview}>
+                    <Text style={styles.recentTextMuted}>No saves yet</Text>
+                  </View>
+                )}
                 <View style={styles.cardFooter}>
                   <Text style={styles.cardCount}>{count} saves</Text>
                   <Ionicons name="chevron-forward" size={13} color={c.textTertiary} />
@@ -217,6 +235,7 @@ export default function LibraryScreen() {
           ) : null
         }
       />
+      <TutorialOverlay visible={tutorialLoaded && !tutorialSeen} onDismiss={dismissTutorial} />
     </View>
   );
 }
@@ -283,7 +302,7 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   row: { gap: SPACING.sm, marginBottom: SPACING.sm },
   card: {
     flex: 1, backgroundColor: c.white, borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md, minHeight: 120,
+    padding: SPACING.md, minHeight: 150,
     ...SHADOW.sm,
   },
   iconBubble: {
@@ -292,7 +311,14 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   cardEmoji: { fontSize: 22 },
-  cardName: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: c.text, flex: 1, lineHeight: 18 },
+  cardName: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: c.text, lineHeight: 18 },
+  recentPreview: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: SPACING.xs,
+  },
+  recentEmoji: { fontSize: 12 },
+  recentText: { flex: 1, fontSize: FONT_SIZE.xs, color: c.textSecondary, lineHeight: 15 },
+  recentTextMuted: { fontSize: FONT_SIZE.xs, color: c.textTertiary, fontStyle: 'italic' },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: SPACING.xs },
   cardCount: { fontSize: FONT_SIZE.xs, color: c.textTertiary, fontWeight: '500' },
 
