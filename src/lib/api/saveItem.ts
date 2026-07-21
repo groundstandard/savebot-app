@@ -91,3 +91,21 @@ export async function archiveItem(itemId: string): Promise<void> {
     .update({ is_archived: true })
     .eq('id', itemId);
 }
+
+export async function deleteItem(itemId: string): Promise<void> {
+  await supabase.from('saved_items').delete().eq('id', itemId);
+}
+
+export async function updateNotes(itemId: string, notes: string): Promise<void> {
+  await supabase
+    .from('saved_items')
+    .update({ user_notes: notes || null })
+    .eq('id', itemId);
+}
+
+export async function setPreferredView(itemId: string, view: 'clean' | 'original'): Promise<void> {
+  await supabase
+    .from('saved_items')
+    .update({ preferred_view: view })
+    .eq('id', itemId);
+}

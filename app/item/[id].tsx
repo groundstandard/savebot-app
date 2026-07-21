@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Modal,
   ActivityIndicator, Linking, Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
-import { toggleFavorite, retryProcessing } from '../../src/lib/api/saveItem';
+import {
+  toggleFavorite, retryProcessing, archiveItem, deleteItem,
+  updateItemCategory, updateNotes, setPreferredView,
+} from '../../src/lib/api/saveItem';
+import { useLibraryStore } from '../../src/store/library';
+import { ConfirmModal } from '../../src/components/ConfirmModal';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../../src/constants';
 import type {
@@ -32,6 +37,14 @@ export default function ItemDetailScreen() {
   const [view, setView] = useState<ViewMode>('clean');
   const [favorite, setFavorite] = useState(false);
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const {
+    categories, subcategories, fetchCategories, fetchSubcategories,
+    updateItem, removeItem,
+  } = useLibraryStore();
 
   const loadItem = useCallback(async () => {
     const { data } = await supabase
@@ -43,6 +56,8 @@ export default function ItemDetailScreen() {
       const saved = data as SavedItem;
       setItem(saved);
       setFavorite(saved.is_favorite);
+      setNotes(saved.user_notes ?? '');
+      setView(saved.preferred_view ?? 'clean');
       const thumb = saved.media?.find((m) => m.media_type === 'thumbnail') ?? saved.media?.[0];
       setThumbUrl(await signedMediaUrl(thumb));
     }
@@ -50,11 +65,13 @@ export default function ItemDetailScreen() {
   }, [id]);
 
   useEffect(() => { loadItem(); }, [loadItem]);
+  useEffect(() => { fetchCategories(true); }, []);
 
   async function handleFavoriteToggle() {
     if (!item) return;
     const next = !favorite;
     setFavorite(next);
+    updateItem(item.id, { is_favorite: next });
     await toggleFavorite(item.id, next);
   }
 
@@ -64,6 +81,51 @@ export default function ItemDetailScreen() {
     await retryProcessing(item.id);
     // Give the Edge Function a moment, then refresh.
     setTimeout(() => { loadItem(); }, 4000);
+  }
+
+  function changeView(v: ViewMode) {
+    setView(v);
+    if (item) setPreferredView(item.id, v);
+  }
+
+  async function saveNotes() {
+    if (!item || notes === (item.user_notes ?? '')) return;
+    setItem({ ...item, user_notes: notes });
+    await updateNotes(item.id, notes);
+  }
+
+  async function openPicker() {
+    if (item?.category_id) fetchSubcategories(item.category_id);
+    setPickerOpen(true);
+  }
+
+  async function pickCategory(categoryId: string) {
+    if (!item) return;
+    setItem({ ...item, category_id: categoryId, subcategory_id: null });
+    updateItem(item.id, { category_id: categoryId, subcategory_id: null });
+    fetchSubcategories(categoryId);
+    await updateItemCategory(item.id, categoryId, null);
+  }
+
+  async function pickSubcategory(subId: string | null) {
+    if (!item?.category_id) return;
+    setItem({ ...item, subcategory_id: subId });
+    updateItem(item.id, { subcategory_id: subId });
+    await updateItemCategory(item.id, item.category_id, subId);
+  }
+
+  async function handleArchive() {
+    if (!item) return;
+    removeItem(item.id);
+    await archiveItem(item.id);
+    router.back();
+  }
+
+  async function handleDelete() {
+    if (!item) return;
+    removeItem(item.id);
+    await deleteItem(item.id);
+    router.back();
   }
 
   if (loading) return <View style={styles.centered}><ActivityIndicator color={c.primary} size="large" /></View>;
@@ -87,6 +149,12 @@ export default function ItemDetailScreen() {
               <Ionicons name="open-outline" size={20} color={c.text} />
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={handleArchive} style={styles.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="archive-outline" size={19} color={c.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setConfirmDelete(true)} style={styles.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={19} color={c.danger} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -96,7 +164,7 @@ export default function ItemDetailScreen() {
           <TouchableOpacity
             key={v}
             style={[styles.viewTab, view === v && styles.viewTabActive]}
-            onPress={() => setView(v)}
+            onPress={() => changeView(v)}
             activeOpacity={0.85}
           >
             <Ionicons
@@ -116,6 +184,40 @@ export default function ItemDetailScreen() {
           <Image source={{ uri: thumbUrl }} style={styles.hero} resizeMode="cover" />
         )}
         {view === 'clean' ? <CleanView item={item} onRetry={handleRetry} /> : <OriginalView item={item} />}
+
+        {/* Category / subcategory */}
+        <TouchableOpacity style={styles.metaSection} onPress={openPicker} activeOpacity={0.8}>
+          <View style={styles.metaSectionLeft}>
+            <Ionicons name="albums-outline" size={16} color={c.textSecondary} />
+            <Text style={styles.metaSectionLabel}>Category</Text>
+          </View>
+          <View style={styles.metaSectionRight}>
+            <Text style={styles.metaSectionValue}>
+              {categories.find((cat) => cat.id === item.category_id)?.name ?? 'Uncategorized'}
+              {item.subcategory_id
+                ? ` · ${subcategories.find((s) => s.id === item.subcategory_id)?.name ?? ''}`
+                : ''}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={c.textTertiary} />
+          </View>
+        </TouchableOpacity>
+
+        {/* Notes */}
+        <View style={styles.notesSection}>
+          <View style={styles.metaSectionLeft}>
+            <Ionicons name="create-outline" size={16} color={c.textSecondary} />
+            <Text style={styles.metaSectionLabel}>Notes</Text>
+          </View>
+          <TextInput
+            style={styles.notesInput}
+            value={notes}
+            onChangeText={setNotes}
+            onBlur={saveNotes}
+            placeholder="Add a note…"
+            placeholderTextColor={c.textTertiary}
+            multiline
+          />
+        </View>
       </ScrollView>
 
       {isRecipe && (
@@ -128,6 +230,60 @@ export default function ItemDetailScreen() {
           <Text style={styles.cookModeText}>Cook Mode</Text>
         </TouchableOpacity>
       )}
+
+      {/* Category / subcategory picker */}
+      <Modal visible={pickerOpen} transparent animationType="slide" onRequestClose={() => setPickerOpen(false)}>
+        <TouchableOpacity style={styles.sheetScrim} activeOpacity={1} onPress={() => setPickerOpen(false)}>
+          <TouchableOpacity style={styles.sheet} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Move to category</Text>
+            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+              {categories.map((cat) => {
+                const active = cat.id === item.category_id;
+                return (
+                  <TouchableOpacity key={cat.id} style={styles.sheetRow} onPress={() => pickCategory(cat.id)} activeOpacity={0.7}>
+                    <Text style={styles.sheetEmoji}>{cat.icon}</Text>
+                    <Text style={[styles.sheetRowText, active && styles.sheetRowTextActive]}>{cat.name}</Text>
+                    {active && <Ionicons name="checkmark-circle" size={18} color={c.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+
+              {item.category_id && subcategories.length > 0 && (
+                <>
+                  <Text style={styles.sheetSubLabel}>Subcategory</Text>
+                  <TouchableOpacity style={styles.sheetChipRow} onPress={() => pickSubcategory(null)} activeOpacity={0.7}>
+                    <Text style={[styles.sheetRowText, !item.subcategory_id && styles.sheetRowTextActive]}>None</Text>
+                    {!item.subcategory_id && <Ionicons name="checkmark-circle" size={18} color={c.primary} />}
+                  </TouchableOpacity>
+                  {subcategories.map((s) => {
+                    const active = s.id === item.subcategory_id;
+                    return (
+                      <TouchableOpacity key={s.id} style={styles.sheetChipRow} onPress={() => pickSubcategory(s.id)} activeOpacity={0.7}>
+                        <Text style={[styles.sheetRowText, active && styles.sheetRowTextActive]}>{s.name}</Text>
+                        {active && <Ionicons name="checkmark-circle" size={18} color={c.primary} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </>
+              )}
+            </ScrollView>
+            <TouchableOpacity style={styles.sheetDone} onPress={() => setPickerOpen(false)} activeOpacity={0.85}>
+              <Text style={styles.sheetDoneText}>Done</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <ConfirmModal
+        visible={confirmDelete}
+        danger
+        title="Delete this save?"
+        message="This permanently removes the item from your library."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </View>
   );
 }
@@ -544,6 +700,57 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   },
   creatorHandle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: c.text },
   hashtags: { fontSize: FONT_SIZE.sm, color: c.primary, marginTop: SPACING.sm, lineHeight: 22 },
+
+  metaSection: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginTop: SPACING.lg, ...SHADOW.sm,
+  },
+  metaSectionLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  metaSectionLabel: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: c.textSecondary },
+  metaSectionRight: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  metaSectionValue: { fontSize: FONT_SIZE.sm, color: c.text, fontWeight: '600', textAlign: 'right' },
+
+  notesSection: {
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginTop: SPACING.sm, gap: SPACING.xs, ...SHADOW.sm,
+  },
+  notesInput: {
+    fontSize: FONT_SIZE.sm, color: c.text, lineHeight: 21,
+    minHeight: 40, textAlignVertical: 'top', paddingTop: 2,
+  },
+
+  sheetScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: c.background, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: SPACING.md, paddingBottom: 32, paddingTop: SPACING.sm, maxHeight: '75%',
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: c.border,
+    alignSelf: 'center', marginBottom: SPACING.md,
+  },
+  sheetTitle: { fontSize: FONT_SIZE.lg, fontWeight: '800', color: c.text, marginBottom: SPACING.sm },
+  sheetScroll: { flexGrow: 0 },
+  sheetRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border,
+  },
+  sheetEmoji: { fontSize: 18 },
+  sheetRowText: { flex: 1, fontSize: FONT_SIZE.md, color: c.text, fontWeight: '500' },
+  sheetRowTextActive: { color: c.primary, fontWeight: '700' },
+  sheetSubLabel: {
+    fontSize: FONT_SIZE.xs, fontWeight: '700', color: c.textTertiary,
+    textTransform: 'uppercase', letterSpacing: 1, marginTop: SPACING.md, marginBottom: SPACING.xs,
+  },
+  sheetChipRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    paddingVertical: 10,
+  },
+  sheetDone: {
+    backgroundColor: c.primary, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, alignItems: 'center', marginTop: SPACING.md,
+  },
+  sheetDoneText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '700' },
 
   cookModeButton: {
     position: 'absolute', bottom: 28, left: SPACING.md, right: SPACING.md,
