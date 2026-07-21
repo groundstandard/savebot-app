@@ -65,14 +65,15 @@ Rebuild/restart Expo. New saves now route through n8n.
 - Platform URL parser (TikTok / YouTube / X / Instagram / Facebook detection + IDs)
 - oembed fetch for TikTok, YouTube, X → caption/title, creator, thumbnail URL
 - Write-back to `saved_items` + `original_post_data`, `processing_status` lifecycle
+- **Media**: download the oembed thumbnail → upload to the private `thumbnails`
+  bucket (path `{user_id}/{saved_item_id}/thumb.jpg`) → record in `saved_item_media`
 - Client-side `retryProcessing()` for stuck items
 
 **Still needs work (flagged, not silently skipped):**
 - **Instagram / Facebook** fetching — oembed needs a Facebook app token; `needs_auth`
   is flagged so a dedicated fetcher can be added. For now those saves keep the shared
   text and stay usable.
-- **Media binary → Supabase Storage + `saved_item_media`** — the workflow captures the
-  remote `thumbnail_url`; downloading the file, generating thumbnails, and uploading to
-  the private `thumbnails` / `user-media` buckets is the next node to add.
-- **Native share extensions (Week 5)** — iOS share extension + Android intent filters
-  require an EAS build + real-device testing (can't be done in the managed dev server).
+- **Video download + transcription** — only the thumbnail is stored today; the full
+  video → `user-media` + transcription is a later node (see `transcribe-video`).
+- **Native share extensions (Week 5)** — see `docs/SHARE-EXTENSION.md`; requires an EAS
+  build + real-device testing (can't be done in the managed dev server).
