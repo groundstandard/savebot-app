@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, ScrollView, Platform,
+  ActivityIndicator, Alert, ScrollView, RefreshControl, Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../../../src/store/library';
 import { useColors } from '../../../src/hooks/useColors';
 import { SavedItemRow } from '../../../src/components/library/SavedItemRow';
+import { ConfirmModal } from '../../../src/components/ConfirmModal';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
 
 export default function CategoryScreen() {
@@ -24,6 +25,7 @@ export default function CategoryScreen() {
   const [newSub, setNewSub] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchItems(categoryId);
@@ -70,21 +72,11 @@ export default function CategoryScreen() {
     );
   }
 
-  function confirmDeleteSub(id: string, subName: string) {
-    Alert.alert(
-      `Delete "${subName}"?`,
-      'Saves stay in this category — they just lose this subcategory tag.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive',
-          onPress: () => {
-            deleteSubcategory(id);
-            if (selectedSub === id) setSelectedSub(null);
-          },
-        },
-      ]
-    );
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    deleteSubcategory(deleteTarget.id);
+    if (selectedSub === deleteTarget.id) setSelectedSub(null);
+    setDeleteTarget(null);
   }
 
   return (
@@ -94,6 +86,13 @@ export default function CategoryScreen() {
         keyExtractor={(i) => i.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={() => { fetchItems(categoryId); fetchSubcategories(categoryId); }}
+            tintColor={c.primary}
+          />
+        }
         ListHeaderComponent={
           <View>
             {/* Top bar */}
@@ -186,7 +185,7 @@ export default function CategoryScreen() {
                         <TouchableOpacity onPress={() => promptMergeSub(sub.id, sub.name)} style={styles.iconBtn}>
                           <Ionicons name="git-merge-outline" size={16} color={c.textSecondary} />
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => confirmDeleteSub(sub.id, sub.name)} style={styles.iconBtn}>
+                        <TouchableOpacity onPress={() => setDeleteTarget({ id: sub.id, name: sub.name })} style={styles.iconBtn}>
                           <Ionicons name="trash-outline" size={15} color="#EF4444" />
                         </TouchableOpacity>
                       </>
@@ -234,6 +233,16 @@ export default function CategoryScreen() {
             </View>
           ) : null
         }
+      />
+
+      <ConfirmModal
+        visible={!!deleteTarget}
+        danger
+        title={`Delete "${deleteTarget?.name ?? ''}"?`}
+        message="Saves stay in this category — they just lose this subcategory tag."
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
       />
     </View>
   );

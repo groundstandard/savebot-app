@@ -6,6 +6,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../src/store/library';
+import { ConfirmModal } from '../src/components/ConfirmModal';
 import { useColors } from '../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../src/constants';
 import type { Category } from '../src/types';
@@ -114,15 +115,6 @@ export default function ManageCategoriesScreen() {
                 <TouchableOpacity onPress={() => saveEdit(cat.id)} style={styles.actionBtn}>
                   <Ionicons name="checkmark" size={18} color={c.success} />
                 </TouchableOpacity>
-              ) : confirmDeleteId === cat.id ? (
-                <>
-                  <TouchableOpacity onPress={() => { deleteCategory(cat.id); setConfirmDeleteId(null); }} style={styles.actionBtn}>
-                    <Ionicons name="trash" size={17} color={c.danger} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setConfirmDeleteId(null)} style={styles.actionBtn}>
-                    <Ionicons name="close" size={18} color={c.textSecondary} />
-                  </TouchableOpacity>
-                </>
               ) : (
                 <>
                   <TouchableOpacity onPress={() => startEdit(cat)} style={styles.actionBtn}>
@@ -180,6 +172,16 @@ export default function ManageCategoriesScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      <ConfirmModal
+        visible={!!confirmDeleteId}
+        danger
+        title="Delete this category?"
+        message={`"${categories.find((cat) => cat.id === confirmDeleteId)?.name ?? ''}" will be removed. Saves inside stay in your library but lose this category.`}
+        confirmLabel="Delete"
+        onConfirm={() => { if (confirmDeleteId) deleteCategory(confirmDeleteId); setConfirmDeleteId(null); }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </View>
   );
 }
