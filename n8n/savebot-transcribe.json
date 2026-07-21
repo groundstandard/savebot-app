@@ -17,15 +17,40 @@
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "language": "javaScript",
-        "jsCode": "// ── CONFIG ── set once (stored encrypted).\nconst OPENAI_API_KEY = 'PASTE_OPENAI_API_KEY';\n\n// Expects { audio_url } — a downloadable audio/video file URL. NOTE: the media\n// pipeline must download the source video first; today only a thumbnail is stored,\n// so this stays idle until video download is wired.\nconst src = $json.body || $json;\nconst audioUrl = src.audio_url;\nif (!audioUrl) return { json: { text: '' } };\n\ntry {\n  const bin = await this.helpers.httpRequest({ method: 'GET', url: audioUrl, encoding: 'arraybuffer' });\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/audio/transcriptions',\n    headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },\n    body: {\n      model: 'whisper-1',\n      file: { value: Buffer.from(bin), options: { filename: 'audio.mp4', contentType: 'application/octet-stream' } }\n    },\n    formData: {\n      model: 'whisper-1',\n      file: { value: Buffer.from(bin), options: { filename: 'audio.mp4' } }\n    },\n    json: true\n  });\n  return { json: { text: res?.text ?? '' } };\n} catch (e) {\n  return { json: { text: '', error: String((e && e.message) || e) } };\n}"
+        "url": "={{ $json.body.audio_url }}",
+        "options": { "response": { "response": { "responseFormat": "file", "outputPropertyName": "data" } } }
       },
-      "id": "code-transcribe",
-      "name": "Whisper Transcribe",
+      "id": "download-audio",
+      "name": "Download Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-460, 0]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "id": "openai-transcribe",
+      "name": "Transcribe",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [-240, 0],
+      "credentials": {
+        "openAiApi": { "id": "XK8rP9sQUaUTSp4n", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Whisper returns the transcript in `text`.\nconst r = $json || {};\nreturn [{ json: { text: (r.text ?? '').toString() } }];"
+      },
+      "id": "build-response",
+      "name": "Build Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-440, 0]
+      "position": [-20, 0]
     },
     {
       "parameters": {
@@ -36,12 +61,14 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [-200, 0]
+      "position": [200, 0]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Whisper Transcribe", "type": "main", "index": 0 }]] },
-    "Whisper Transcribe": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Webhook": { "main": [[{ "node": "Download Audio", "type": "main", "index": 0 }]] },
+    "Download Audio": { "main": [[{ "node": "Transcribe", "type": "main", "index": 0 }]] },
+    "Transcribe": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
   },
   "pinData": {},
   "meta": { "templateId": "savebot-transcribe" }

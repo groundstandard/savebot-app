@@ -17,15 +17,32 @@
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "language": "javaScript",
-        "jsCode": "// ── CONFIG ── set once (stored encrypted).\nconst OPENAI_API_KEY = 'PASTE_OPENAI_API_KEY';\nconst MODEL = 'gpt-4o-mini'; // supports vision\n\nconst src = $json.body || $json;\nconst imageUrl = src.image_url;\nif (!imageUrl) return { json: { text: '' } };\n\ntry {\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },\n    body: {\n      model: MODEL,\n      messages: [{\n        role: 'user',\n        content: [\n          { type: 'text', text: 'Extract ALL visible text from this image verbatim. If there is no text, reply with an empty string. Return only the extracted text.' },\n          { type: 'image_url', image_url: { url: imageUrl } }\n        ]\n      }],\n      max_tokens: 1024\n    },\n    json: true\n  });\n  const text = res?.choices?.[0]?.message?.content ?? '';\n  return { json: { text } };\n} catch (e) {\n  return { json: { text: '', error: String((e && e.message) || e) } };\n}"
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": { "__rl": true, "value": "gpt-4o-mini", "mode": "list", "cachedResultName": "gpt-4o-mini" },
+        "text": "Extract ALL visible text from this image verbatim. If there is no text, reply with an empty string. Return only the extracted text.",
+        "inputType": "url",
+        "imageUrls": "={{ $json.body.image_url }}",
+        "options": {}
       },
-      "id": "code-ocr",
-      "name": "Vision OCR",
+      "id": "openai-vision",
+      "name": "Analyze Image",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [-440, 0],
+      "credentials": {
+        "openAiApi": { "id": "XK8rP9sQUaUTSp4n", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize the OpenAI node output to { text }.\nconst r = $json || {};\nconst text = (r.content ?? r.text ?? r.output ?? '').toString();\nreturn [{ json: { text } }];"
+      },
+      "id": "build-response",
+      "name": "Build Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-440, 0]
+      "position": [-200, 0]
     },
     {
       "parameters": {
@@ -36,12 +53,13 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [-200, 0]
+      "position": [40, 0]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Vision OCR", "type": "main", "index": 0 }]] },
-    "Vision OCR": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Webhook": { "main": [[{ "node": "Analyze Image", "type": "main", "index": 0 }]] },
+    "Analyze Image": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
   },
   "pinData": {},
   "meta": { "templateId": "savebot-ocr" }

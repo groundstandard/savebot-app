@@ -32,8 +32,9 @@ source video (today only a thumbnail is stored, so there's no audio input yet).
 | `savebot-ocr.json` | `/webhook/savebot-ocr` | Vision OCR of the post image |
 | `savebot-transcribe.json` | `/webhook/savebot-transcribe` | Whisper transcription (staged) |
 
-Each Code node has an `OPENAI_API_KEY` placeholder (or OpenAI credential for
-`savebot-ai`) — set it once per workflow. Then set the matching function secrets:
+All three use n8n's native OpenAI nodes (LLM Agent, Analyze Image, Transcribe) via
+the stored **OpenAI credential** — on import, open each OpenAI node and select the
+credential (no API key in code). Then set the matching function secrets:
 
 ```bash
 supabase secrets set N8N_AI_WEBHOOK_URL=https://<host>/webhook/savebot-ai
