@@ -1,0 +1,49 @@
+{
+  "name": "SaveBot — Content Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "savebot-ingest",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-ingest",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [260, 300],
+      "webhookId": "savebot-ingest"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// ── CONFIG ── replace these once in the n8n editor (stored encrypted).\n// Alternatively set them as env vars and read via $env in an expression.\nconst SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';\nconst SERVICE_KEY  = 'PASTE_SUPABASE_SERVICE_ROLE_KEY';\n\n// Webhook v2 nests the posted JSON under `body`.\nconst src = $json.body || $json;\nconst savedItemId = src.saved_item_id;\nconst oembedUrl   = src.oembed_url || null;\nconst platform    = src.platform || 'manual';\n\nif (!savedItemId) {\n  return { json: { ok: false, error: 'missing saved_item_id' } };\n}\n\nlet oembed = {};\nlet status = 'complete';\n\ntry {\n  if (oembedUrl) {\n    // Public oembed: TikTok, YouTube, X. Instagram/Facebook need an app token\n    // (needs_auth=true) and are handled by a dedicated fetcher — skip here.\n    const o = await this.helpers.httpRequest({ method: 'GET', url: oembedUrl, json: true });\n    oembed = {\n      title: o.title || null,\n      author_name: o.author_name || null,\n      author_url: o.author_url || null,\n      thumbnail_url: o.thumbnail_url || null,\n      provider: o.provider_name || platform,\n      html: o.html || null\n    };\n  }\n} catch (e) {\n  status = 'failed';\n  oembed = { fetch_error: String((e && e.message) || e) };\n}\n\n// Prefer the user's shared text as the caption; fall back to the oembed title.\nconst patch = {\n  processing_status: status,\n  raw_caption: src.text || oembed.title || null,\n  source_creator_handle: oembed.author_name || null,\n  original_post_data: Object.assign({}, src, { oembed })\n};\n\nawait this.helpers.httpRequest({\n  method: 'PATCH',\n  url: `${SUPABASE_URL}/rest/v1/saved_items?id=eq.${savedItemId}`,\n  headers: {\n    apikey: SERVICE_KEY,\n    Authorization: `Bearer ${SERVICE_KEY}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=minimal'\n  },\n  body: patch,\n  json: true\n});\n\nreturn { json: { ok: true, saved_item_id: savedItemId, status, oembed } };"
+      },
+      "id": "code-fetch-store",
+      "name": "Fetch + Store",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [740, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Fetch + Store", "type": "main", "index": 0 }]] },
+    "Fetch + Store": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "meta": { "templateId": "savebot-ingest" }
+}
