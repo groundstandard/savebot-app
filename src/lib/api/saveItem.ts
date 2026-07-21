@@ -8,8 +8,6 @@ export interface SharePayload {
   imageUri?: string;
 }
 
-const N8N_SAVE_WEBHOOK_URL = process.env.EXPO_PUBLIC_N8N_SAVE_WEBHOOK_URL;
-
 export async function createSaveFromShare(
   payload: SharePayload,
   userId: string
@@ -47,43 +45,26 @@ export async function createSaveFromShare(
 
   if (error) throw error;
 
-  triggerProcessing(data.id, { ...parsed, url, text: payload.text });
+  triggerProcessing(data.id);
   return data as SavedItem;
 }
 
 /**
- * Kick off async processing. Prefers the n8n ingestion webhook (fetch + AI);
- * falls back to the process-save-item Edge Function when n8n isn't configured.
- * Fire-and-forget — failures leave the item 'pending' for retry, never block the UI.
+ * Kick off async processing in the process-save-item Edge Function
+ * (fetch post details + media, then AI extraction — see supabase/functions).
+ * Fire-and-forget: it reads everything it needs from the saved_items row, so a
+ * failure just leaves the item processable again via retryProcessing().
  */
-function triggerProcessing(savedItemId: string, ctx: Record<string, unknown>) {
-  if (N8N_SAVE_WEBHOOK_URL) {
-    fetch(N8N_SAVE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ saved_item_id: savedItemId, ...ctx }),
-    }).catch(() => { /* stays pending; a retry sweep can re-trigger */ });
-    return;
-  }
+function triggerProcessing(savedItemId: string) {
   supabase.functions.invoke('process-save-item', {
-    body: { saved_item_id: savedItemId, payload: ctx },
+    body: { saved_item_id: savedItemId },
   });
 }
 
 /** Re-trigger processing for an item stuck in 'pending'/'failed'. */
 export async function retryProcessing(itemId: string): Promise<void> {
-  const { data } = await supabase.from('saved_items').select('*').eq('id', itemId).single();
-  if (!data) return;
   await supabase.from('saved_items').update({ processing_status: 'pending' }).eq('id', itemId);
-  const opd = (data.original_post_data ?? {}) as Record<string, unknown>;
-  triggerProcessing(itemId, {
-    url: opd.shared_url ?? data.source_url,
-    platform: data.source_platform,
-    content_id: opd.content_id ?? null,
-    oembed_url: opd.oembed_url ?? null,
-    needs_auth: opd.needs_auth ?? false,
-    text: data.raw_caption,
-  });
+  triggerProcessing(itemId);
 }
 
 export async function toggleFavorite(itemId: string, isFavorite: boolean): Promise<void> {

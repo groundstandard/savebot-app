@@ -88,7 +88,8 @@ eas build --profile development --platform ios      # and/or android
 ```
 
 Install the build, open Instagram/TikTok → **Share → SaveBot**. Confirm a pending
-item appears and then completes (via the n8n webhook — see `n8n/README.md`).
+item appears and then completes (via the `process-save-item` Edge Function, which
+fetches the post details + thumbnail and runs AI extraction).
 
 ## Edge cases to cover (from the sprint checklist)
 

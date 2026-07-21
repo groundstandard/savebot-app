@@ -9,50 +9,110 @@ const supabase = createClient(
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! });
 
-serve(async (req) => {
-  const { saved_item_id, payload } = await req.json();
+const THUMB_BUCKET = 'thumbnails';
 
-  // Mark as processing
+serve(async (req) => {
+  const { saved_item_id } = await req.json();
+
   await supabase.from('saved_items').update({ processing_status: 'processing' }).eq('id', saved_item_id);
 
   try {
     const { data: item } = await supabase.from('saved_items').select('*').eq('id', saved_item_id).single();
     if (!item) throw new Error('Item not found');
 
+    const opd = (item.original_post_data ?? {}) as Record<string, any>;
+
+    // ── 1. Fetch the post details (oembed) — best effort, never fails the item.
+    let oembed: Record<string, any> = {};
+    if (opd.oembed_url) {
+      try {
+        const res = await fetch(opd.oembed_url, { headers: { 'User-Agent': 'SaveBot/1.0' } });
+        if (res.ok) {
+          const o = await res.json();
+          oembed = {
+            title: o.title ?? null,
+            author_name: o.author_name ?? null,
+            author_url: o.author_url ?? null,
+            thumbnail_url: o.thumbnail_url ?? null,
+            provider: o.provider_name ?? item.source_platform,
+            html: o.html ?? null,
+          };
+        }
+      } catch (e) {
+        oembed = { fetch_error: String(e) };
+      }
+    }
+
+    // ── 2. Media: download the thumbnail → private bucket → saved_item_media. Best effort.
+    if (oembed.thumbnail_url) {
+      try {
+        const img = await fetch(oembed.thumbnail_url);
+        if (img.ok) {
+          const bytes = new Uint8Array(await img.arrayBuffer());
+          const path = `${item.user_id}/${saved_item_id}/thumb.jpg`;
+          const { error: upErr } = await supabase.storage
+            .from(THUMB_BUCKET)
+            .upload(path, bytes, { contentType: 'image/jpeg', upsert: true });
+          if (!upErr) {
+            // Replace any prior thumbnail row (safe on retry — no unique constraint needed).
+            await supabase.from('saved_item_media')
+              .delete().eq('saved_item_id', saved_item_id).eq('media_type', 'thumbnail');
+            await supabase.from('saved_item_media').insert({
+              saved_item_id,
+              media_type: 'thumbnail',
+              storage_path: `${THUMB_BUCKET}/${path}`,
+              sort_order: 0,
+            });
+          }
+        }
+      } catch (_e) { /* thumbnail is optional */ }
+    }
+
+    // ── 3. AI extraction — enriched with the fetched caption/title. Best effort:
+    // if the model is unavailable, we still complete with the fetched content.
     const { data: user } = await supabase.from('users').select('onboarding_preferences').eq('id', item.user_id).single();
     const { data: categories } = await supabase.from('categories').select('id, name').eq('user_id', item.user_id);
 
-    const prompt = buildExtractionPrompt({
-      caption: item.raw_caption,
-      url: item.source_url,
-      platform: item.source_platform,
-      userPrefs: user?.onboarding_preferences,
-      categories,
-    });
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20251001',
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const raw = response.content[0].type === 'text' ? response.content[0].text : '';
-    const extracted = parseJSON(raw);
-
-    // Find matching category
-    const matchedCategory = categories?.find(
-      (c) => c.name.toLowerCase().includes((extracted.category ?? '').toLowerCase())
-    );
-
-    await supabase.from('saved_items').update({
-      ai_summary: extracted.summary ?? null,
-      structured_data: extracted.structured_data ?? null,
-      content_classification: extracted.content_type ?? null,
-      ai_tags: extracted.tags ?? [],
-      category_id: matchedCategory?.id ?? null,
+    const caption = item.raw_caption ?? oembed.title ?? null;
+    const update: Record<string, any> = {
+      raw_caption: caption,
+      source_creator_handle: oembed.author_name ?? item.source_creator_handle ?? null,
+      original_post_data: { ...opd, oembed },
       processing_status: 'complete',
-    }).eq('id', saved_item_id);
+    };
 
+    try {
+      const prompt = buildExtractionPrompt({
+        caption,
+        url: item.source_url,
+        platform: item.source_platform,
+        userPrefs: user?.onboarding_preferences,
+        categories,
+      });
+
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-5-20251001',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const raw = response.content[0].type === 'text' ? response.content[0].text : '';
+      const extracted = parseJSON(raw);
+      const matchedCategory = categories?.find(
+        (c) => c.name.toLowerCase().includes((extracted.category ?? '').toLowerCase())
+      );
+
+      update.ai_summary = extracted.summary ?? null;
+      update.structured_data = extracted.structured_data ?? null;
+      update.content_classification = extracted.content_type ?? null;
+      update.ai_tags = extracted.tags ?? [];
+      if (matchedCategory?.id) update.category_id = matchedCategory.id;
+    } catch (aiErr) {
+      // Keep the fetched content; record the AI failure without failing the save.
+      update.original_post_data = { ...opd, oembed, ai_error: String(aiErr) };
+    }
+
+    await supabase.from('saved_items').update(update).eq('id', saved_item_id);
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (e) {
     await supabase.from('saved_items').update({ processing_status: 'failed' }).eq('id', saved_item_id);
