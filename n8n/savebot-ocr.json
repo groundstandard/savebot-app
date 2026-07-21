@@ -1,0 +1,48 @@
+{
+  "name": "SaveBot — OCR (Vision)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "savebot-ocr",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-savebot-ocr",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-680, 0],
+      "webhookId": "savebot-ocr"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// ── CONFIG ── set once (stored encrypted).\nconst OPENAI_API_KEY = 'PASTE_OPENAI_API_KEY';\nconst MODEL = 'gpt-4o-mini'; // supports vision\n\nconst src = $json.body || $json;\nconst imageUrl = src.image_url;\nif (!imageUrl) return { json: { text: '' } };\n\ntry {\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },\n    body: {\n      model: MODEL,\n      messages: [{\n        role: 'user',\n        content: [\n          { type: 'text', text: 'Extract ALL visible text from this image verbatim. If there is no text, reply with an empty string. Return only the extracted text.' },\n          { type: 'image_url', image_url: { url: imageUrl } }\n        ]\n      }],\n      max_tokens: 1024\n    },\n    json: true\n  });\n  const text = res?.choices?.[0]?.message?.content ?? '';\n  return { json: { text } };\n} catch (e) {\n  return { json: { text: '', error: String((e && e.message) || e) } };\n}"
+      },
+      "id": "code-ocr",
+      "name": "Vision OCR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-440, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-200, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Vision OCR", "type": "main", "index": 0 }]] },
+    "Vision OCR": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "meta": { "templateId": "savebot-ocr" }
+}

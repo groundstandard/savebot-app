@@ -6,11 +6,30 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-// AI extraction runs on n8n (our AI gateway) — the Edge Function only fetches +
-// stores, then delegates the LLM call to this webhook. Set as a function secret.
-const N8N_AI_WEBHOOK_URL = Deno.env.get('N8N_AI_WEBHOOK_URL') ?? '';
+// All AI runs on n8n (our AI gateway). The Edge Function only fetches + stores,
+// then delegates each AI step to these webhooks. Set as function secrets.
+const N8N_AI_WEBHOOK_URL = Deno.env.get('N8N_AI_WEBHOOK_URL') ?? '';           // LLM extraction
+const N8N_OCR_WEBHOOK_URL = Deno.env.get('N8N_OCR_WEBHOOK_URL') ?? '';         // Vision OCR
+const N8N_TRANSCRIBE_WEBHOOK_URL = Deno.env.get('N8N_TRANSCRIBE_WEBHOOK_URL') ?? ''; // Whisper
 
 const THUMB_BUCKET = 'thumbnails';
+
+/** POST to an n8n AI webhook and return its { text }. Best-effort — '' on failure. */
+async function n8nText(url: string, payload: Record<string, unknown>): Promise<string> {
+  if (!url) return '';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return '';
+    const json = await res.json();
+    return (json.text ?? '').toString().trim();
+  } catch {
+    return '';
+  }
+}
 
 serve(async (req) => {
   const { saved_item_id } = await req.json();
@@ -69,16 +88,32 @@ serve(async (req) => {
       } catch (_e) { /* thumbnail is optional */ }
     }
 
-    // ── 3. AI extraction — enriched with the fetched caption/title. Best effort:
-    // if the model is unavailable, we still complete with the fetched content.
+    // ── 3. OCR + transcription — both delegated to n8n. Best-effort.
+    const ocrText = oembed.thumbnail_url
+      ? await n8nText(N8N_OCR_WEBHOOK_URL, { image_url: oembed.thumbnail_url })
+      : '';
+    // Video isn't downloaded yet (only a thumbnail is stored), so this stays
+    // empty until the media pipeline provides a video/audio URL.
+    const videoUrl = (opd.video_url as string | undefined) ?? null;
+    const transcript = videoUrl
+      ? await n8nText(N8N_TRANSCRIBE_WEBHOOK_URL, { audio_url: videoUrl })
+      : '';
+
+    // ── 4. AI extraction (n8n) — enriched with caption + OCR + transcript.
     const { data: user } = await supabase.from('users').select('onboarding_preferences').eq('id', item.user_id).single();
     const { data: categories } = await supabase.from('categories').select('id, name').eq('user_id', item.user_id);
 
     const caption = item.raw_caption ?? oembed.title ?? null;
+    const assembled = [
+      caption,
+      ocrText ? `On-screen text:\n${ocrText}` : '',
+      transcript ? `Transcript:\n${transcript}` : '',
+    ].filter(Boolean).join('\n\n');
+
     const update: Record<string, any> = {
       raw_caption: caption,
       source_creator_handle: oembed.author_name ?? item.source_creator_handle ?? null,
-      original_post_data: { ...opd, oembed },
+      original_post_data: { ...opd, oembed, ocr: ocrText || null, transcript: transcript || null },
       processing_status: 'complete',
     };
 
@@ -86,7 +121,7 @@ serve(async (req) => {
       if (!N8N_AI_WEBHOOK_URL) throw new Error('N8N_AI_WEBHOOK_URL not configured');
 
       const prompt = buildExtractionPrompt({
-        caption,
+        caption: assembled || caption,
         url: item.source_url,
         platform: item.source_platform,
         userPrefs: user?.onboarding_preferences,
@@ -117,7 +152,7 @@ serve(async (req) => {
       if (matchedCategory?.id) update.category_id = matchedCategory.id;
     } catch (aiErr) {
       // Keep the fetched content; record the AI failure without failing the save.
-      update.original_post_data = { ...opd, oembed, ai_error: String(aiErr) };
+      update.original_post_data = { ...opd, oembed, ocr: ocrText || null, transcript: transcript || null, ai_error: String(aiErr) };
     }
 
     await supabase.from('saved_items').update(update).eq('id', saved_item_id);
