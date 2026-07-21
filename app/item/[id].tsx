@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import {
   toggleFavorite, retryProcessing, archiveItem, deleteItem,
-  updateItemCategory, updateNotes, setPreferredView,
+  updateItemCategory, updateNotes, setPreferredView, updateTags,
 } from '../../src/lib/api/saveItem';
 import { useLibraryStore } from '../../src/store/library';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
@@ -38,6 +38,8 @@ export default function ItemDetailScreen() {
   const [favorite, setFavorite] = useState(false);
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [related, setRelated] = useState<SavedItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -60,6 +62,23 @@ export default function ItemDetailScreen() {
       setView(saved.preferred_view ?? 'clean');
       const thumb = saved.media?.find((m) => m.media_type === 'thumbnail') ?? saved.media?.[0];
       setThumbUrl(await signedMediaUrl(thumb));
+
+      // Related: same subcategory if set, else same category.
+      const col = saved.subcategory_id ? 'subcategory_id' : saved.category_id ? 'category_id' : null;
+      const val = saved.subcategory_id ?? saved.category_id;
+      if (col && val) {
+        const { data: rel } = await supabase
+          .from('saved_items')
+          .select('*')
+          .eq(col, val)
+          .eq('is_archived', false)
+          .neq('id', saved.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        setRelated((rel as SavedItem[]) ?? []);
+      } else {
+        setRelated([]);
+      }
     }
     setLoading(false);
   }, [id]);
@@ -92,6 +111,24 @@ export default function ItemDetailScreen() {
     if (!item || notes === (item.user_notes ?? '')) return;
     setItem({ ...item, user_notes: notes });
     await updateNotes(item.id, notes);
+  }
+
+  async function addTag() {
+    const t = tagInput.trim().toLowerCase();
+    if (!item || !t || item.ai_tags.includes(t)) { setTagInput(''); return; }
+    const next = [...item.ai_tags, t];
+    setItem({ ...item, ai_tags: next });
+    setTagInput('');
+    updateItem(item.id, { ai_tags: next });
+    await updateTags(item.id, next);
+  }
+
+  async function removeTag(tag: string) {
+    if (!item) return;
+    const next = item.ai_tags.filter((x) => x !== tag);
+    setItem({ ...item, ai_tags: next });
+    updateItem(item.id, { ai_tags: next });
+    await updateTags(item.id, next);
   }
 
   async function openPicker() {
@@ -202,6 +239,32 @@ export default function ItemDetailScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Tags (editable) */}
+        <View style={styles.notesSection}>
+          <View style={styles.metaSectionLeft}>
+            <Ionicons name="pricetags-outline" size={16} color={c.textSecondary} />
+            <Text style={styles.metaSectionLabel}>Tags</Text>
+          </View>
+          <View style={styles.tagsEditRow}>
+            {item.ai_tags.map((tag) => (
+              <TouchableOpacity key={tag} style={styles.tagEditable} onPress={() => removeTag(tag)} activeOpacity={0.7}>
+                <Text style={styles.tagText}>{tag}</Text>
+                <Ionicons name="close" size={12} color={c.primary} />
+              </TouchableOpacity>
+            ))}
+            <TextInput
+              style={styles.tagInput}
+              value={tagInput}
+              onChangeText={setTagInput}
+              onSubmitEditing={addTag}
+              placeholder="+ tag"
+              placeholderTextColor={c.textTertiary}
+              returnKeyType="done"
+              autoCapitalize="none"
+            />
+          </View>
+        </View>
+
         {/* Notes */}
         <View style={styles.notesSection}>
           <View style={styles.metaSectionLeft}>
@@ -218,6 +281,29 @@ export default function ItemDetailScreen() {
             multiline
           />
         </View>
+
+        {/* Related */}
+        {related.length > 0 && (
+          <View style={styles.relatedSection}>
+            <View style={styles.metaSectionLeft}>
+              <Ionicons name="git-network-outline" size={16} color={c.textSecondary} />
+              <Text style={styles.metaSectionLabel}>Related</Text>
+            </View>
+            {related.map((r) => (
+              <TouchableOpacity
+                key={r.id}
+                style={styles.relatedRow}
+                onPress={() => router.push({ pathname: '/item/[id]', params: { id: r.id } })}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.relatedText} numberOfLines={1}>
+                  {r.ai_summary ?? r.raw_caption ?? 'Untitled save'}
+                </Text>
+                <Ionicons name="chevron-forward" size={15} color={c.textTertiary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {isRecipe && (
@@ -318,15 +404,6 @@ function CleanView({ item, onRetry }: { item: SavedItem; onRetry: () => void }) 
   return (
     <View>
       {item.ai_summary && <Text style={styles.summary}>{item.ai_summary}</Text>}
-      {item.ai_tags.length > 0 && (
-        <View style={styles.tags}>
-          {item.ai_tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
 
       {data?.type === 'recipe' && <RecipeView data={data as RecipeData} />}
       {data?.type === 'workout' && <WorkoutView data={data as WorkoutData} />}
@@ -719,6 +796,28 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     fontSize: FONT_SIZE.sm, color: c.text, lineHeight: 21,
     minHeight: 40, textAlignVertical: 'top', paddingTop: 2,
   },
+
+  tagsEditRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  tagEditable: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: c.primaryLight, borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  tagInput: {
+    minWidth: 70, flexGrow: 1, fontSize: FONT_SIZE.sm, color: c.text,
+    paddingVertical: 4,
+  },
+
+  relatedSection: {
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginTop: SPACING.sm, gap: SPACING.xs, ...SHADOW.sm,
+  },
+  relatedRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: SPACING.sm, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: c.border,
+  },
+  relatedText: { flex: 1, fontSize: FONT_SIZE.sm, color: c.text },
 
   sheetScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {

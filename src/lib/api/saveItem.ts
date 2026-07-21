@@ -103,6 +103,13 @@ export async function updateNotes(itemId: string, notes: string): Promise<void> 
     .eq('id', itemId);
 }
 
+export async function updateTags(itemId: string, tags: string[]): Promise<void> {
+  await supabase
+    .from('saved_items')
+    .update({ ai_tags: tags })
+    .eq('id', itemId);
+}
+
 export async function setPreferredView(itemId: string, view: 'clean' | 'original'): Promise<void> {
   await supabase
     .from('saved_items')
