@@ -1,13 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import Anthropic from 'https://esm.sh/@anthropic-ai/sdk@0.39.0';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! });
+// AI extraction runs on n8n (our AI gateway) — the Edge Function only fetches +
+// stores, then delegates the LLM call to this webhook. Set as a function secret.
+const N8N_AI_WEBHOOK_URL = Deno.env.get('N8N_AI_WEBHOOK_URL') ?? '';
 
 const THUMB_BUCKET = 'thumbnails';
 
@@ -82,6 +83,8 @@ serve(async (req) => {
     };
 
     try {
+      if (!N8N_AI_WEBHOOK_URL) throw new Error('N8N_AI_WEBHOOK_URL not configured');
+
       const prompt = buildExtractionPrompt({
         caption,
         url: item.source_url,
@@ -90,14 +93,19 @@ serve(async (req) => {
         categories,
       });
 
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5-20251001',
-        max_tokens: 2048,
-        messages: [{ role: 'user', content: prompt }],
+      // Delegate the LLM call to the SaveBot n8n workflow, which returns { text }.
+      const aiRes = await fetch(N8N_AI_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: 'You are a precise content extraction engine for SaveBot. Return valid JSON only.',
+          prompt,
+        }),
       });
+      if (!aiRes.ok) throw new Error(`n8n AI webhook ${aiRes.status}`);
+      const aiJson = await aiRes.json();
+      const extracted = parseJSON(aiJson.text ?? '');
 
-      const raw = response.content[0].type === 'text' ? response.content[0].text : '';
-      const extracted = parseJSON(raw);
       const matchedCategory = categories?.find(
         (c) => c.name.toLowerCase().includes((extracted.category ?? '').toLowerCase())
       );
