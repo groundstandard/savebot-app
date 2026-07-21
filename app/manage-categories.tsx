@@ -15,17 +15,26 @@ const ICON_CHOICES = ['📁', '🍳', '💪', '✈️', '🏠', '👗', '🛍️
 export default function ManageCategoriesScreen() {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
-  const { categories, fetchCategories, createCategory, renameCategory, setCategoryHidden, deleteCategory } = useLibraryStore();
+  const { categories, fetchCategories, createCategory, renameCategory, setCategoryHidden, deleteCategory, reorderCategories } = useLibraryStore();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('📁');
 
   useEffect(() => { fetchCategories(true); }, []);
+
+  function move(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= categories.length) return;
+    const ids = categories.map((c) => c.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    reorderCategories(ids);
+  }
 
   function startEdit(c: Category) {
     setEditingId(c.id);
@@ -53,11 +62,17 @@ export default function ManageCategoriesScreen() {
           <Ionicons name="chevron-back" size={20} color={c.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage Categories</Text>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity
+          onPress={() => { setReordering((r) => !r); setEditingId(null); setConfirmDeleteId(null); }}
+          style={[styles.iconBtn, reordering && styles.iconBtnActive]}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={reordering ? 'checkmark' : 'swap-vertical'} size={18} color={reordering ? c.white : c.text} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {categories.map((cat) => (
+        {categories.map((cat, index) => (
           <View key={cat.id} style={styles.row}>
             <View style={styles.iconBubble}><Text style={styles.iconEmoji}>{cat.icon}</Text></View>
 
@@ -78,7 +93,24 @@ export default function ManageCategoriesScreen() {
             )}
 
             <View style={styles.rowActions}>
-              {editingId === cat.id ? (
+              {reordering ? (
+                <>
+                  <TouchableOpacity
+                    onPress={() => move(index, -1)}
+                    disabled={index === 0}
+                    style={styles.actionBtn}
+                  >
+                    <Ionicons name="chevron-up" size={20} color={index === 0 ? c.border : c.text} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => move(index, 1)}
+                    disabled={index === categories.length - 1}
+                    style={styles.actionBtn}
+                  >
+                    <Ionicons name="chevron-down" size={20} color={index === categories.length - 1 ? c.border : c.text} />
+                  </TouchableOpacity>
+                </>
+              ) : editingId === cat.id ? (
                 <TouchableOpacity onPress={() => saveEdit(cat.id)} style={styles.actionBtn}>
                   <Ionicons name="checkmark" size={18} color={c.success} />
                 </TouchableOpacity>
@@ -163,6 +195,7 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     width: 38, height: 38, borderRadius: 12,
     backgroundColor: c.white, alignItems: 'center', justifyContent: 'center', ...SHADOW.sm,
   },
+  iconBtnActive: { backgroundColor: c.primary },
   headerTitle: { fontSize: FONT_SIZE.lg, fontWeight: '800', color: c.text },
 
   list: { padding: SPACING.md, gap: SPACING.sm },

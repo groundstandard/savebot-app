@@ -1,29 +1,74 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, Platform,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
+  ActivityIndicator, Alert, ScrollView, Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../../../src/store/library';
 import { useColors } from '../../../src/hooks/useColors';
+import { SavedItemRow } from '../../../src/components/library/SavedItemRow';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
-import type { SavedItem } from '../../../src/types';
 
 export default function CategoryScreen() {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
   const { categoryId, name } = useLocalSearchParams<{ categoryId: string; name: string }>();
-  const { items, loading, fetchItems } = useLibraryStore();
+  const {
+    items, loading, fetchItems,
+    subcategories, fetchSubcategories, createSubcategory, renameSubcategory, deleteSubcategory,
+  } = useLibraryStore();
 
-  useEffect(() => { fetchItems(categoryId); }, [categoryId]);
+  const [selectedSub, setSelectedSub] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
+  const [newSub, setNewSub] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  useEffect(() => {
+    fetchItems(categoryId);
+    fetchSubcategories(categoryId);
+  }, [categoryId]);
 
   const categoryItems = items.filter((i) => i.category_id === categoryId);
+  const visibleItems = selectedSub
+    ? categoryItems.filter((i) => i.subcategory_id === selectedSub)
+    : categoryItems;
+
+  async function handleAddSub() {
+    const trimmed = newSub.trim();
+    if (!trimmed) return;
+    await createSubcategory(categoryId, trimmed);
+    setNewSub('');
+  }
+
+  async function handleRename(id: string) {
+    if (editName.trim()) await renameSubcategory(id, editName.trim());
+    setEditingId(null);
+    setEditName('');
+  }
+
+  function confirmDeleteSub(id: string, subName: string) {
+    Alert.alert(
+      `Delete "${subName}"?`,
+      'Saves stay in this category — they just lose this subcategory tag.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: () => {
+            deleteSubcategory(id);
+            if (selectedSub === id) setSelectedSub(null);
+          },
+        },
+      ]
+    );
+  }
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={categoryItems}
+        data={visibleItems}
         keyExtractor={(i) => i.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -41,9 +86,105 @@ export default function CategoryScreen() {
               <Text style={styles.categoryName}>{name}</Text>
               <View style={styles.countBadge}>
                 <Ionicons name="bookmark" size={12} color={c.primary} />
-                <Text style={styles.countText}>{categoryItems.length} saves</Text>
+                <Text style={styles.countText}>{visibleItems.length} saves</Text>
               </View>
             </View>
+
+            {/* Subcategory filter chips */}
+            {(subcategories.length > 0 || managing) && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipsRow}
+              >
+                <TouchableOpacity
+                  style={[styles.chip, !selectedSub && styles.chipActive]}
+                  onPress={() => setSelectedSub(null)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.chipText, !selectedSub && styles.chipTextActive]}>All</Text>
+                </TouchableOpacity>
+                {subcategories.map((sub) => {
+                  const active = selectedSub === sub.id;
+                  return (
+                    <TouchableOpacity
+                      key={sub.id}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setSelectedSub(sub.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{sub.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Manage subcategories toggle */}
+            <TouchableOpacity
+              style={styles.manageToggle}
+              onPress={() => { setManaging((m) => !m); setEditingId(null); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={managing ? 'chevron-up' : 'options-outline'} size={15} color={c.primary} />
+              <Text style={styles.manageToggleText}>
+                {managing ? 'Done managing' : 'Manage subcategories'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Manage panel */}
+            {managing && (
+              <View style={styles.managePanel}>
+                {subcategories.map((sub) => (
+                  <View key={sub.id} style={styles.manageRow}>
+                    {editingId === sub.id ? (
+                      <>
+                        <TextInput
+                          style={styles.manageInput}
+                          value={editName}
+                          onChangeText={setEditName}
+                          autoFocus
+                          onSubmitEditing={() => handleRename(sub.id)}
+                          placeholder="Subcategory name"
+                          placeholderTextColor={c.textTertiary}
+                        />
+                        <TouchableOpacity onPress={() => handleRename(sub.id)} style={styles.iconBtn}>
+                          <Ionicons name="checkmark" size={18} color={c.primary} />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.manageName}>{sub.name}</Text>
+                        <TouchableOpacity
+                          onPress={() => { setEditingId(sub.id); setEditName(sub.name); }}
+                          style={styles.iconBtn}
+                        >
+                          <Ionicons name="pencil" size={15} color={c.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => confirmDeleteSub(sub.id, sub.name)} style={styles.iconBtn}>
+                          <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                ))}
+                {/* Add new subcategory */}
+                <View style={styles.manageRow}>
+                  <TextInput
+                    style={styles.manageInput}
+                    value={newSub}
+                    onChangeText={setNewSub}
+                    placeholder="New subcategory…"
+                    placeholderTextColor={c.textTertiary}
+                    onSubmitEditing={handleAddSub}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity onPress={handleAddSub} style={styles.iconBtn}>
+                    <Ionicons name="add-circle" size={22} color={c.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {loading && (
               <ActivityIndicator color={c.primary} style={{ marginVertical: SPACING.xl }} />
@@ -57,69 +198,20 @@ export default function CategoryScreen() {
               <View style={styles.emptyIcon}>
                 <Ionicons name="folder-open-outline" size={36} color={c.textTertiary} />
               </View>
-              <Text style={styles.emptyTitle}>Nothing here yet</Text>
-              <Text style={styles.emptyText}>Save something and it'll appear in this category.</Text>
+              <Text style={styles.emptyTitle}>
+                {selectedSub ? 'Nothing in this subcategory' : 'Nothing here yet'}
+              </Text>
+              <Text style={styles.emptyText}>
+                {selectedSub
+                  ? 'Tag a save with this subcategory and it\'ll show up here.'
+                  : 'Save something and it\'ll appear in this category.'}
+              </Text>
             </View>
           ) : null
         }
       />
     </View>
   );
-}
-
-function SavedItemRow({ item }: { item: SavedItem }) {
-  const c = useColors();
-  const styles = useMemo(() => makeStyles(c), [c]);
-  return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
-      activeOpacity={0.85}
-    >
-      <View style={styles.cardTop}>
-        <View style={styles.platformBadge}>
-          <Text style={styles.platformEmoji}>{platformEmoji(item.source_platform)}</Text>
-        </View>
-        <View style={styles.cardMeta}>
-          <Text style={styles.cardPlatform}>{item.source_platform ?? 'Manual'}</Text>
-          <Text style={styles.cardDate}>{formatDate(item.created_at)}</Text>
-        </View>
-        {item.is_favorite && (
-          <Ionicons name="heart" size={14} color="#EC4899" />
-        )}
-      </View>
-
-      <Text style={styles.cardSummary} numberOfLines={3}>
-        {item.ai_summary ?? item.raw_caption ?? 'Processing…'}
-      </Text>
-
-      {item.ai_tags.length > 0 && (
-        <View style={styles.tags}>
-          {item.ai_tags.slice(0, 3).map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.cardFooter}>
-        <Text style={styles.viewText}>View details</Text>
-        <Ionicons name="chevron-forward" size={13} color={c.textTertiary} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function platformEmoji(platform: string) {
-  const map: Record<string, string> = {
-    instagram: '📸', tiktok: '🎵', youtube: '▶️', facebook: '👥', x: '🐦', manual: '✏️',
-  };
-  return map[platform] ?? '🌐';
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 const makeStyles = (c: ColorScheme) => StyleSheet.create({
@@ -167,63 +259,54 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     color: c.text,
   },
 
-  card: {
+  // Subcategory filter chips
+  chipsRow: { gap: SPACING.xs, paddingVertical: SPACING.xs },
+  chip: {
+    backgroundColor: c.white,
+    borderWidth: 1.5,
+    borderColor: c.border,
+    borderRadius: BORDER_RADIUS.full,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  chipActive: { backgroundColor: c.primary, borderColor: c.primary },
+  chipText: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: c.text },
+  chipTextActive: { color: c.white },
+
+  // Manage subcategories
+  manageToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  manageToggleText: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: c.primary },
+  managePanel: {
     backgroundColor: c.white,
     borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
     ...SHADOW.sm,
   },
-  cardTop: {
+  manageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
   },
-  platformBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: c.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  platformEmoji: { fontSize: 16 },
-  cardMeta: { flex: 1 },
-  cardPlatform: {
-    fontSize: FONT_SIZE.xs,
-    fontWeight: '700',
-    color: c.primary,
-    textTransform: 'capitalize',
-  },
-  cardDate: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: 1 },
-
-  cardSummary: {
-    fontSize: FONT_SIZE.sm,
+  manageName: { flex: 1, fontSize: FONT_SIZE.md, color: c.text, fontWeight: '500' },
+  manageInput: {
+    flex: 1,
+    fontSize: FONT_SIZE.md,
     color: c.text,
-    lineHeight: 20,
-    marginBottom: SPACING.sm,
+    paddingVertical: 4,
   },
-
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: SPACING.sm },
-  tag: {
-    backgroundColor: c.primaryLight,
-    borderRadius: BORDER_RADIUS.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  tagText: { fontSize: FONT_SIZE.xs, color: c.primary, fontWeight: '600' },
-
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 2,
-    paddingTop: SPACING.xs,
-    borderTopWidth: 1,
-    borderTopColor: c.border,
-  },
-  viewText: { fontSize: FONT_SIZE.xs, color: c.textTertiary, fontWeight: '500' },
+  iconBtn: { padding: 6 },
 
   empty: {
     alignItems: 'center',

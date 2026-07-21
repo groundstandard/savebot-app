@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import type { SavedItem, Category } from '../types';
+import type { SavedItem, Category, Subcategory } from '../types';
 
 interface LibraryState {
   items: SavedItem[];
   categories: Category[];
+  subcategories: Subcategory[];
   loading: boolean;
   fetchCategories: (includeHidden?: boolean) => Promise<void>;
   fetchItems: (categoryId?: string) => Promise<void>;
@@ -16,11 +17,18 @@ interface LibraryState {
   renameCategory: (id: string, name: string) => Promise<void>;
   setCategoryHidden: (id: string, hidden: boolean) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  reorderCategories: (orderedIds: string[]) => Promise<void>;
+  // Subcategory management
+  fetchSubcategories: (categoryId: string) => Promise<void>;
+  createSubcategory: (categoryId: string, name: string) => Promise<void>;
+  renameSubcategory: (id: string, name: string) => Promise<void>;
+  deleteSubcategory: (id: string) => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   items: [],
   categories: [],
+  subcategories: [],
   loading: false,
 
   fetchCategories: async (includeHidden = false) => {
@@ -84,5 +92,50 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Detach items first so the delete doesn't fail on the FK.
     await supabase.from('saved_items').update({ category_id: null }).eq('category_id', id);
     await supabase.from('categories').delete().eq('id', id);
+  },
+
+  reorderCategories: async (orderedIds) => {
+    // Optimistically reorder + renumber sort_order to match the new sequence.
+    set((s) => {
+      const byId = new Map(s.categories.map((c) => [c.id, c]));
+      const reordered = orderedIds
+        .map((id, i) => { const c = byId.get(id); return c ? { ...c, sort_order: i } : null; })
+        .filter(Boolean) as Category[];
+      return { categories: reordered };
+    });
+    await Promise.all(
+      orderedIds.map((id, i) => supabase.from('categories').update({ sort_order: i }).eq('id', id))
+    );
+  },
+
+  fetchSubcategories: async (categoryId) => {
+    const { data } = await supabase
+      .from('subcategories')
+      .select('*')
+      .eq('category_id', categoryId)
+      .order('sort_order');
+    set({ subcategories: (data as Subcategory[]) ?? [] });
+  },
+
+  createSubcategory: async (categoryId, name) => {
+    const nextOrder = get().subcategories.reduce((m, s) => Math.max(m, s.sort_order), -1) + 1;
+    const { data } = await supabase
+      .from('subcategories')
+      .insert({ category_id: categoryId, name, sort_order: nextOrder, is_ai_generated: false })
+      .select()
+      .single();
+    if (data) set((s) => ({ subcategories: [...s.subcategories, data as Subcategory] }));
+  },
+
+  renameSubcategory: async (id, name) => {
+    set((s) => ({ subcategories: s.subcategories.map((x) => (x.id === id ? { ...x, name } : x)) }));
+    await supabase.from('subcategories').update({ name }).eq('id', id);
+  },
+
+  deleteSubcategory: async (id) => {
+    set((s) => ({ subcategories: s.subcategories.filter((x) => x.id !== id) }));
+    // Detach items from this subcategory first (keeps them in the parent category).
+    await supabase.from('saved_items').update({ subcategory_id: null }).eq('subcategory_id', id);
+    await supabase.from('subcategories').delete().eq('id', id);
   },
 }));
