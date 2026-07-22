@@ -7,16 +7,21 @@ YouTube, etc., receives the shared URL/image, and creates a save.
 > the managed `expo start` dev server or a simulator's Metro session. Do it on a
 > dev/preview build.
 
-## What's already in place
+## Status: IMPLEMENTED (2026-07-22) — only a fresh EAS build remains
 
-- **Android**: `app.json` now declares `android.intentFilters` for `SEND` with
-  `text/plain` and `image/*`, so SaveBot shows up in Android's share sheet after a
-  native build.
-- **App logic**: `createSaveFromShare({ url?, text?, imageUri? }, userId)` in
-  `src/lib/api/saveItem.ts` already turns a shared payload into a save (URL parse →
-  pending row → n8n/Edge processing). The share handler only needs to *call* it.
+The share flow is wired for **both iOS and Android**:
+- `expo-share-intent` (8.0.1) installed + its config plugin in `app.json`
+  (iOS activation rules + Android `text/*` / `image/*`). The plugin generates the
+  **iOS Share Extension** target and the Android intent at build time.
+- `src/components/ShareIntentHandler.tsx` is mounted at the root and turns a shared
+  URL/text/image into a save via `createSaveFromShare` → opens the library.
+- Web-safe (plugin disabled on web; native module is optional).
 
-## Recommended: `expo-share-intent`
+**Left to do:** run a **fresh EAS build** (`eas build --profile development`) so the
+native extension is generated, then test **Share → SaveBot** on a real device.
+The reference notes below document the setup that is now in place.
+
+## Setup in place: `expo-share-intent`
 
 A config plugin that adds the iOS Share Extension target **and** wires the Android
 intent, then hands the payload to JS — the least-native-code path for managed Expo.
