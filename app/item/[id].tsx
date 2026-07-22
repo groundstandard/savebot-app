@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import {
   toggleFavorite, retryProcessing, archiveItem, deleteItem,
-  updateItemCategory, updateNotes, setPreferredView, updateTags,
+  updateItemCategory, updateNotes, setPreferredView, updateTags, recordCategoryCorrection,
 } from '../../src/lib/api/saveItem';
 import { useLibraryStore } from '../../src/store/library';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
@@ -142,6 +142,9 @@ export default function ItemDetailScreen() {
     updateItem(item.id, { category_id: categoryId, subcategory_id: null });
     fetchSubcategories(categoryId);
     await updateItemCategory(item.id, categoryId, null);
+    // Teach the extractor how this user files this kind of content.
+    const catName = categories.find((cat) => cat.id === categoryId)?.name;
+    if (catName) recordCategoryCorrection(item.content_classification, catName);
   }
 
   async function pickSubcategory(subId: string | null) {
@@ -401,8 +404,17 @@ function CleanView({ item, onRetry }: { item: SavedItem; onRetry: () => void }) 
     );
   }
 
+  const confidence = (item.original_post_data as { ai_confidence?: number } | null)?.ai_confidence;
+  const lowConfidence = typeof confidence === 'number' && confidence < 0.6;
+
   return (
     <View>
+      {lowConfidence && (
+        <View style={styles.reviewBanner}>
+          <Ionicons name="alert-circle-outline" size={16} color={c.warning} />
+          <Text style={styles.reviewText}>AI wasn't fully sure — double-check the details.</Text>
+        </View>
+      )}
       {item.ai_summary && <Text style={styles.summary}>{item.ai_summary}</Text>}
 
       {data?.type === 'recipe' && <RecipeView data={data as RecipeData} />}
@@ -705,6 +717,13 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   viewTabTextActive: { color: c.text },
 
   content: { paddingHorizontal: SPACING.md, paddingBottom: 120 },
+  reviewBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#FFFBEB', borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm, marginBottom: SPACING.md,
+    borderWidth: 1, borderColor: '#FDE68A',
+  },
+  reviewText: { flex: 1, fontSize: FONT_SIZE.xs, color: '#92400E', fontWeight: '600' },
   hero: {
     width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg,
     marginBottom: SPACING.md, backgroundColor: c.surfaceAlt,

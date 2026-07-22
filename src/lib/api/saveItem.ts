@@ -85,6 +85,30 @@ export async function updateItemCategory(
     .eq('id', itemId);
 }
 
+/**
+ * Remember that the user filed this content_type under a given category, so the
+ * AI extractor can favor it next time (past-corrections learning loop). Stored
+ * on users.onboarding_preferences.corrections — newest per content_type, cap 20.
+ */
+export async function recordCategoryCorrection(
+  contentType: string | null,
+  categoryName: string
+): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  const { data } = await supabase
+    .from('users').select('onboarding_preferences').eq('id', session.user.id).single();
+  const prefs = (data?.onboarding_preferences ?? {}) as Record<string, unknown>;
+  const prev = Array.isArray(prefs.corrections)
+    ? (prefs.corrections as Array<{ content_type: string | null; category: string }>)
+    : [];
+  const next = [{ content_type: contentType, category: categoryName }, ...prev.filter((c) => c.content_type !== contentType)].slice(0, 20);
+  await supabase
+    .from('users')
+    .update({ onboarding_preferences: { ...prefs, corrections: next } })
+    .eq('id', session.user.id);
+}
+
 export async function archiveItem(itemId: string): Promise<void> {
   await supabase
     .from('saved_items')

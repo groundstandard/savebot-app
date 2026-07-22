@@ -150,6 +150,9 @@ serve(async (req) => {
       update.content_classification = extracted.content_type ?? null;
       update.ai_tags = extracted.tags ?? [];
       if (matchedCategory?.id) update.category_id = matchedCategory.id;
+      // Keep the model's self-reported confidence so the UI can flag low-confidence saves.
+      const conf = typeof extracted.confidence === 'number' ? extracted.confidence : null;
+      update.original_post_data = { ...update.original_post_data, ai_confidence: conf };
     } catch (aiErr) {
       // Keep the fetched content; record the AI failure without failing the save.
       update.original_post_data = { ...opd, oembed, ocr: ocrText || null, transcript: transcript || null, ai_error: String(aiErr) };
@@ -165,6 +168,13 @@ serve(async (req) => {
 });
 
 function buildExtractionPrompt({ caption, url, platform, userPrefs, categories }: any): string {
+  // Past corrections: content_type → category the user re-filed to. Nudges the
+  // model to match how this user actually organizes their library.
+  const corrections: Array<{ content_type?: string; category?: string }> = userPrefs?.corrections ?? [];
+  const correctionsLine = corrections.length
+    ? corrections.map((x) => `${x.content_type ?? 'other'} → ${x.category}`).join('; ')
+    : 'none';
+
   return `You are a content analysis engine for SaveBot — an AI-powered personal knowledge library.
 
 Analyze this social media content and return a JSON object:
@@ -185,6 +195,7 @@ URL: ${url ?? 'none'}
 Caption: ${caption ?? 'none'}
 User interests: ${JSON.stringify(userPrefs?.interests ?? [])}
 Available categories: ${categories?.map((c: any) => c.name).join(', ') ?? 'none'}
+Past user corrections (content_type → preferred category) — favor these when they apply: ${correctionsLine}
 
 For structured_data, ALWAYS include a "type" field, and use the schema appropriate to the content type:
 - recipe → { "type": "recipe", dish_name, cuisine, meal_type, prep_time_minutes, cook_time_minutes, total_time_minutes, servings, difficulty ("easy"|"medium"|"hard"), dietary_tags: [], ingredients: [{item, quantity, unit, notes}], instructions: [{step, text, time_minutes}], nutrition: {calories, protein_g, carbs_g, fat_g}|null, tips: [] }
