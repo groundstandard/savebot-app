@@ -12,6 +12,7 @@ import {
 } from '../../src/lib/api/saveItem';
 import { useLibraryStore } from '../../src/store/library';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
+import { EmbedPlayer } from '../../src/components/item/EmbedPlayer';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../../src/constants';
 import type {
@@ -668,8 +669,10 @@ function Tips({ tips }: { tips: string[] }) {
 function OriginalView({ item }: { item: SavedItem }) {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const oembed = (item.original_post_data as { oembed?: { html?: string | null } } | null)?.oembed ?? {};
   return (
     <View>
+      <EmbedPlayer html={oembed.html} sourceUrl={item.source_url} platform={item.source_platform} />
       {item.source_creator_handle && (
         <View style={styles.creatorRow}>
           <View style={styles.creatorAvatar}>
