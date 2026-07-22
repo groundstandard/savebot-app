@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '../src/hooks/useAuth';
 import { useSaveNotifications } from '../src/hooks/useSaveNotifications';
+import { ShareIntentHandler } from '../src/components/ShareIntentHandler';
 import { useThemeStore } from '../src/store/theme';
 import { useIsDark } from '../src/hooks/useColors';
 
@@ -16,6 +17,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <ShareIntentHandler />
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         {/* Auth-flow screens swap instantly (no slide) so the loading→app

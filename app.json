@@ -26,20 +26,7 @@
         "backgroundColor": "#6366F1"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
-      ],
-      "intentFilters": [
-        {
-          "action": "SEND",
-          "category": ["DEFAULT"],
-          "data": [{ "mimeType": "text/plain" }]
-        },
-        {
-          "action": "SEND",
-          "category": ["DEFAULT"],
-          "data": [{ "mimeType": "image/*" }]
-        }
       ]
     },
     "web": {
@@ -65,7 +52,19 @@
       ],
       "expo-status-bar",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+            "NSExtensionActivationSupportsWebPageWithMaxCount": 1,
+            "NSExtensionActivationSupportsImageWithMaxCount": 1,
+            "NSExtensionActivationSupportsText": true
+          },
+          "androidIntentFilters": ["text/*", "image/*"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
