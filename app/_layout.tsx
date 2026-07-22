@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '../src/hooks/useAuth';
 import { useSaveNotifications } from '../src/hooks/useSaveNotifications';
 import { ShareIntentHandler } from '../src/components/ShareIntentHandler';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useThemeStore } from '../src/store/theme';
 import { useIsDark } from '../src/hooks/useColors';
 
@@ -16,20 +18,27 @@ export default function RootLayout() {
   useEffect(() => { loadTheme(); }, []);
 
   return (
-    <SafeAreaProvider>
-      <ShareIntentHandler />
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Auth-flow screens swap instantly (no slide) so the loading→app
-            transition doesn't flicker the login screen. */}
-        <Stack.Screen name="index" options={{ animation: 'none' }} />
-        <Stack.Screen name="(auth)" options={{ animation: 'none' }} />
-        <Stack.Screen name="(onboarding)" options={{ animation: 'none' }} />
-        <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-        <Stack.Screen name="auth-callback" options={{ animation: 'none' }} />
-        <Stack.Screen name="item/[id]" options={{ presentation: 'card' }} />
-        <Stack.Screen name="cook-mode/[id]" options={{ presentation: 'fullScreenModal' }} />
-      </Stack>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          {/* Isolated so a share-intent failure can never blank the whole app. */}
+          <ErrorBoundary fallback={null}>
+            <ShareIntentHandler />
+          </ErrorBoundary>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <Stack screenOptions={{ headerShown: false }}>
+            {/* Auth-flow screens swap instantly (no slide) so the loading→app
+                transition doesn't flicker the login screen. */}
+            <Stack.Screen name="index" options={{ animation: 'none' }} />
+            <Stack.Screen name="(auth)" options={{ animation: 'none' }} />
+            <Stack.Screen name="(onboarding)" options={{ animation: 'none' }} />
+            <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+            <Stack.Screen name="auth-callback" options={{ animation: 'none' }} />
+            <Stack.Screen name="item/[id]" options={{ presentation: 'card' }} />
+            <Stack.Screen name="cook-mode/[id]" options={{ presentation: 'fullScreenModal' }} />
+          </Stack>
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
