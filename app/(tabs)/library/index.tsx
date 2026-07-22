@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Image,
   ActivityIndicator, RefreshControl, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -11,6 +11,7 @@ import { useTutorialStore } from '../../../src/store/tutorial';
 import { useColors } from '../../../src/hooks/useColors';
 import { SavedItemRow, platformEmoji } from '../../../src/components/library/SavedItemRow';
 import { TutorialOverlay } from '../../../src/components/onboarding/TutorialOverlay';
+import { signedMediaUrl, itemThumbMedia } from '../../../src/lib/media';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
 
 const CATEGORY_COLORS = [
@@ -45,12 +46,28 @@ export default function LibraryScreen() {
 
   const [view, setView] = useState<LibraryView>('categories');
   const [layout, setLayout] = useState<Layout>('grid');
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCategories();
     fetchItems();
     loadTutorial();
   }, []);
+
+  // Resolve a real thumbnail (signed URL) for each category's most recent save.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const map: Record<string, string> = {};
+      for (const cat of categories) {
+        const recent = items.find((i) => i.category_id === cat.id && itemThumbMedia(i));
+        const url = recent ? await signedMediaUrl(itemThumbMedia(recent)) : null;
+        if (url) map[cat.id] = url;
+      }
+      if (!cancelled) setThumbs(map);
+    })();
+    return () => { cancelled = true; };
+  }, [items, categories]);
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -200,7 +217,9 @@ export default function LibraryScreen() {
                   <Text style={styles.cardEmoji}>{cat.icon}</Text>
                 </View>
                 <Text style={styles.cardName} numberOfLines={2}>{cat.name}</Text>
-                {recent ? (
+                {thumbs[cat.id] ? (
+                  <Image source={{ uri: thumbs[cat.id] }} style={styles.cardThumb} resizeMode="cover" />
+                ) : recent ? (
                   <View style={styles.recentPreview}>
                     <Text style={styles.recentEmoji}>{platformEmoji(recent.source_platform)}</Text>
                     <Text style={styles.recentText} numberOfLines={1}>
@@ -312,6 +331,10 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   },
   cardEmoji: { fontSize: 22 },
   cardName: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: c.text, lineHeight: 18 },
+  cardThumb: {
+    width: '100%', height: 56, borderRadius: BORDER_RADIUS.sm,
+    marginTop: SPACING.xs, backgroundColor: c.surfaceAlt,
+  },
   recentPreview: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: SPACING.xs,

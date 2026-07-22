@@ -125,19 +125,17 @@ export default function CategoryScreen() {
                 >
                   <Text style={[styles.chipText, !selectedSub && styles.chipTextActive]}>All</Text>
                 </TouchableOpacity>
-                {subcategories.map((sub) => {
-                  const active = selectedSub === sub.id;
-                  return (
-                    <TouchableOpacity
-                      key={sub.id}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setSelectedSub(sub.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{sub.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {subcategories.map((sub) => (
+                  <TouchableOpacity
+                    key={sub.id}
+                    style={styles.chip}
+                    onPress={() => router.push({ pathname: '/(tabs)/library/subcategory/[subId]', params: { subId: sub.id, name: sub.name } })}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.chipText}>{sub.name}</Text>
+                    <Ionicons name="chevron-forward" size={12} color={c.textTertiary} />
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             )}
 
@@ -296,6 +294,9 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   // Subcategory filter chips
   chipsRow: { gap: SPACING.xs, paddingVertical: SPACING.xs },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: c.white,
     borderWidth: 1.5,
     borderColor: c.border,
