@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../src/lib/supabase';
+import { useLibraryStore } from '../../src/store/library';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
 import type { SavedItem } from '../../src/types';
@@ -47,20 +48,23 @@ export default function SearchScreen() {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateKey>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const { categories, fetchCategories } = useLibraryStore();
 
-  const hasFilters = !!typeFilter || !!platformFilter || dateFilter !== 'all';
+  const hasFilters = !!typeFilter || !!platformFilter || !!categoryFilter || dateFilter !== 'all';
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load recent searches once.
+  // Load recent searches + categories once.
   useEffect(() => {
     AsyncStorage.getItem(RECENTS_KEY).then((v) => {
       if (v) { try { setRecents(JSON.parse(v)); } catch { /* ignore */ } }
     });
-  }, []);
+    if (categories.length === 0) fetchCategories();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runSearch = useCallback(async (text: string) => {
     const q = text.trim();
-    const active = !!typeFilter || !!platformFilter || dateFilter !== 'all';
+    const active = !!typeFilter || !!platformFilter || !!categoryFilter || dateFilter !== 'all';
     if (q.length < 2 && !active) { setResults([]); return; }
     setLoading(true);
 
@@ -69,6 +73,7 @@ export default function SearchScreen() {
       let b = supabase.from('saved_items').select('*, category:categories(*)').eq('is_archived', false);
       if (typeFilter) b = b.eq('content_classification', typeFilter);
       if (platformFilter) b = b.eq('source_platform', platformFilter);
+      if (categoryFilter) b = b.eq('category_id', categoryFilter);
       if (dateFilter !== 'all') {
         const days = dateFilter === 'week' ? 7 : 30;
         b = b.gte('created_at', new Date(Date.now() - days * 86400000).toISOString());
@@ -102,10 +107,10 @@ export default function SearchScreen() {
 
     setResults(data ?? []);
     setLoading(false);
-  }, [typeFilter, platformFilter, dateFilter]);
+  }, [typeFilter, platformFilter, categoryFilter, dateFilter]);
 
   // Re-run whenever a filter changes.
-  useEffect(() => { runSearch(query); }, [typeFilter, platformFilter, dateFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { runSearch(query); }, [typeFilter, platformFilter, categoryFilter, dateFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onChangeText(text: string) {
     setQuery(text);
@@ -169,6 +174,12 @@ export default function SearchScreen() {
 
         {/* Filter chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow} keyboardShouldPersistTaps="handled">
+          {categories.length > 0 && (
+            <>
+              {categories.map((cat) => chip(cat.name, categoryFilter === cat.id, () => setCategoryFilter((p) => (p === cat.id ? null : cat.id)), `c-${cat.id}`))}
+              <View style={styles.chipDivider} />
+            </>
+          )}
           {TYPE_FILTERS.map((f) => chip(f.label, typeFilter === f.key, () => setTypeFilter((p) => (p === f.key ? null : f.key)), `t-${f.key}`))}
           <View style={styles.chipDivider} />
           {PLATFORM_FILTERS.map((f) => chip(f.label, platformFilter === f.key, () => setPlatformFilter((p) => (p === f.key ? null : f.key)), `p-${f.key}`))}

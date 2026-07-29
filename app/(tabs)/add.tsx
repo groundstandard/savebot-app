@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
 import { createSaveFromShare, createSaveFromImage } from '../../src/lib/api/saveItem';
+import { successFeedback } from '../../src/lib/haptics';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
 
@@ -40,6 +41,7 @@ export default function AddScreen() {
       const item = await createSaveFromShare(payload, session.user.id);
       addItem(item);
       setInput('');
+      successFeedback();
       setSuccessMsg('Saved! Your item is being analyzed.');
     } catch {
       setErrorMsg('Failed to save. Check the URL and try again.');
@@ -59,6 +61,7 @@ export default function AddScreen() {
     try {
       const item = await createSaveFromImage(asset.base64, session.user.id);
       addItem(item);
+      successFeedback();
       setSuccessMsg('Image saved! Reading the text and analyzing it now.');
     } catch {
       setErrorMsg('Failed to upload the image. Please try again.');

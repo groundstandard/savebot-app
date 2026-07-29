@@ -11,6 +11,7 @@ import { useTutorialStore } from '../../../src/store/tutorial';
 import { useColors } from '../../../src/hooks/useColors';
 import { SavedItemRow, platformEmoji } from '../../../src/components/library/SavedItemRow';
 import { TutorialOverlay } from '../../../src/components/onboarding/TutorialOverlay';
+import { Skeleton } from '../../../src/components/Skeleton';
 import { signedMediaUrl, itemThumbMedia } from '../../../src/lib/media';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../../src/constants';
 
@@ -78,13 +79,28 @@ export default function LibraryScreen() {
 
   if (loading && categories.length === 0 && items.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={c.primary} size="large" />
+      <View style={styles.container}>
+        <View style={styles.listContent}>
+          <View style={{ paddingTop: Platform.OS === 'ios' ? 60 : 48 }}>
+            <Skeleton height={14} width={140} radius={6} />
+            <Skeleton height={26} width={180} radius={8} style={{ marginTop: 8 }} />
+            <View style={{ flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md }}>
+              <Skeleton height={34} width={110} radius={999} />
+              <Skeleton height={34} width={120} radius={999} />
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: SPACING.lg }}>
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} height={150} width="48%" style={{ marginBottom: SPACING.sm }} />
+              ))}
+            </View>
+          </View>
+        </View>
       </View>
     );
   }
 
   const favorites = items.filter((i) => i.is_favorite);
+  const processingCount = items.filter((i) => i.processing_status !== 'complete' && i.processing_status !== 'failed').length;
   const gridCategories = view === 'categories' && layout === 'grid';
 
   // Data + column count per active view.
@@ -143,6 +159,12 @@ export default function LibraryScreen() {
                 <Ionicons name="heart" size={14} color="#EC4899" />
                 <Text style={styles.statText}>{favorites.length} favorites</Text>
               </View>
+              {processingCount > 0 && (
+                <View style={styles.statPill}>
+                  <ActivityIndicator size="small" color={c.primary} />
+                  <Text style={styles.statText}>{processingCount} processing</Text>
+                </View>
+              )}
             </View>
 
             {/* Segmented tabs */}

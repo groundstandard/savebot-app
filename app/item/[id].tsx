@@ -11,6 +11,7 @@ import {
   updateItemCategory, updateNotes, setPreferredView, updateTags, recordCategoryCorrection,
 } from '../../src/lib/api/saveItem';
 import { useLibraryStore } from '../../src/store/library';
+import { tapFeedback, warnFeedback } from '../../src/lib/haptics';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
 import { EmbedPlayer } from '../../src/components/item/EmbedPlayer';
 import { useColors } from '../../src/hooks/useColors';
@@ -90,6 +91,7 @@ export default function ItemDetailScreen() {
   async function handleFavoriteToggle() {
     if (!item) return;
     const next = !favorite;
+    tapFeedback();
     setFavorite(next);
     updateItem(item.id, { is_favorite: next });
     await toggleFavorite(item.id, next);
@@ -164,6 +166,7 @@ export default function ItemDetailScreen() {
 
   async function handleDelete() {
     if (!item) return;
+    warnFeedback();
     removeItem(item.id);
     await deleteItem(item.id);
     router.back();

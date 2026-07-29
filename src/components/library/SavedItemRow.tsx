@@ -35,6 +35,13 @@ export function SavedItemRow({ item }: { item: SavedItem }) {
           <Text style={styles.cardPlatform}>{item.source_platform ?? 'Manual'}</Text>
           <Text style={styles.cardDate}>{formatDate(item.created_at)}</Text>
         </View>
+        {item.processing_status !== 'complete' && (
+          <View style={[styles.statusPill, item.processing_status === 'failed' ? styles.statusFail : styles.statusBusy]}>
+            <Text style={[styles.statusText, item.processing_status === 'failed' ? styles.statusTextFail : styles.statusTextBusy]}>
+              {item.processing_status === 'failed' ? 'Failed' : 'Processing…'}
+            </Text>
+          </View>
+        )}
         {item.is_favorite && <Ionicons name="heart" size={14} color="#EC4899" />}
       </View>
 
@@ -115,4 +122,10 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     borderTopColor: c.border,
   },
   viewText: { fontSize: FONT_SIZE.xs, color: c.textTertiary, fontWeight: '500' },
+  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BORDER_RADIUS.full },
+  statusBusy: { backgroundColor: c.primaryLight },
+  statusFail: { backgroundColor: '#FEE2E2' },
+  statusText: { fontSize: FONT_SIZE.xs, fontWeight: '700' },
+  statusTextBusy: { color: c.primary },
+  statusTextFail: { color: '#DC2626' },
 });
