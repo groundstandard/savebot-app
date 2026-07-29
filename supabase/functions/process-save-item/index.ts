@@ -89,8 +89,29 @@ serve(async (req) => {
     }
 
     // ── 3. OCR + transcription — both delegated to n8n. Best-effort.
-    const ocrText = oembed.thumbnail_url
-      ? await n8nText(N8N_OCR_WEBHOOK_URL, { image_url: oembed.thumbnail_url })
+    // A user-uploaded image (manual Add → Image) takes priority over the oembed
+    // thumbnail. It lives in the PRIVATE user-media bucket, so OCR (OpenAI Vision
+    // via n8n) gets a short-lived signed URL, and we record it as the item's media.
+    let uploadedImageUrl: string | null = null;
+    if (opd.uploaded_image_path) {
+      const { data: signed } = await supabase.storage
+        .from('user-media')
+        .createSignedUrl(opd.uploaded_image_path as string, 600);
+      uploadedImageUrl = signed?.signedUrl ?? null;
+      if (uploadedImageUrl) {
+        await supabase.from('saved_item_media')
+          .delete().eq('saved_item_id', saved_item_id).eq('media_type', 'thumbnail');
+        await supabase.from('saved_item_media').insert({
+          saved_item_id,
+          media_type: 'thumbnail',
+          storage_path: `user-media/${opd.uploaded_image_path}`,
+          sort_order: 0,
+        });
+      }
+    }
+    const ocrTarget = uploadedImageUrl ?? oembed.thumbnail_url;
+    const ocrText = ocrTarget
+      ? await n8nText(N8N_OCR_WEBHOOK_URL, { image_url: ocrTarget })
       : '';
     // Video isn't downloaded yet (only a thumbnail is stored), so this stays
     // empty until the media pipeline provides a video/audio URL.

@@ -49,6 +49,52 @@ export async function createSaveFromShare(
   return data as SavedItem;
 }
 
+/** Decode a base64 string to bytes for Supabase Storage upload (RN-safe). */
+function decodeBase64(b64: string): Uint8Array {
+  const bin = (globalThis as unknown as { atob: (s: string) => string }).atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Manual "Add → Image": upload a picked photo to the private user-media bucket,
+ * create a pending saved_item that points at it, and kick off processing. The
+ * Edge Function OCRs the image (via a signed URL) and runs AI extraction on the
+ * recognized text — same pipeline as a shared link, minus the oembed fetch.
+ */
+export async function createSaveFromImage(base64: string, userId: string): Promise<SavedItem> {
+  const path = `${userId}/uploads/${Date.now()}.jpg`;
+  const { error: upErr } = await supabase.storage
+    .from('user-media')
+    .upload(path, decodeBase64(base64), { contentType: 'image/jpeg', upsert: true });
+  if (upErr) throw upErr;
+
+  const { data, error } = await supabase
+    .from('saved_items')
+    .insert({
+      user_id: userId,
+      source_platform: 'manual',
+      source_url: null,
+      raw_caption: null,
+      processing_status: 'pending',
+      content_type: 'image',
+      raw_hashtags: [],
+      ai_tags: [],
+      is_favorite: false,
+      is_archived: false,
+      preferred_view: 'clean',
+      original_post_data: { uploaded_image_path: path, platform: 'manual' },
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  triggerProcessing(data.id);
+  return data as SavedItem;
+}
+
 /**
  * Kick off async processing in the process-save-item Edge Function
  * (fetch post details + media, then AI extraction — see supabase/functions).

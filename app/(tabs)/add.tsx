@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
-import { createSaveFromShare } from '../../src/lib/api/saveItem';
+import { createSaveFromShare, createSaveFromImage } from '../../src/lib/api/saveItem';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
 
@@ -48,10 +48,22 @@ export default function AddScreen() {
   }
 
   async function handleImagePick() {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
-    if (!result.canceled) {
-      setErrorMsg('Image upload coming in next sprint — stay tuned!');
+    if (!session) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.base64) { setErrorMsg('Could not read that image. Try another one.'); return; }
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const item = await createSaveFromImage(asset.base64, session.user.id);
+      addItem(item);
+      setSuccessMsg('Image saved! Reading the text and analyzing it now.');
+    } catch {
+      setErrorMsg('Failed to upload the image. Please try again.');
     }
+    setLoading(false);
   }
 
   return (
@@ -81,12 +93,14 @@ export default function AddScreen() {
         {/* Input area */}
         <View style={styles.inputCard}>
           {mode === 'image' ? (
-            <TouchableOpacity style={styles.imageBox} onPress={handleImagePick} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.imageBox} onPress={handleImagePick} activeOpacity={0.85} disabled={loading}>
               <View style={styles.imageIcon}>
-                <Ionicons name="cloud-upload-outline" size={32} color={c.primary} />
+                {loading
+                  ? <ActivityIndicator color={c.primary} />
+                  : <Ionicons name="cloud-upload-outline" size={32} color={c.primary} />}
               </View>
-              <Text style={styles.imageLabel}>Tap to select an image</Text>
-              <Text style={styles.imageSub}>JPEG, PNG, WEBP supported</Text>
+              <Text style={styles.imageLabel}>{loading ? 'Uploading…' : 'Tap to select an image'}</Text>
+              <Text style={styles.imageSub}>JPEG, PNG, WEBP · AI reads the text</Text>
             </TouchableOpacity>
           ) : (
             <>
