@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import { parseSharedUrl, extractUrl } from './platformUrl';
+import { assertCanSave } from '../subscription';
 import type { SavedItem } from '../../types';
 
 export interface SharePayload {
@@ -12,6 +13,8 @@ export async function createSaveFromShare(
   payload: SharePayload,
   userId: string
 ): Promise<SavedItem> {
+  await assertCanSave(userId); // free-tier gate (inert until launch)
+
   // A shared payload may carry the URL in `url` or embedded in `text`.
   const url = payload.url ?? extractUrl(payload.text) ?? undefined;
   const parsed = parseSharedUrl(url);
@@ -64,6 +67,8 @@ function decodeBase64(b64: string): Uint8Array {
  * recognized text — same pipeline as a shared link, minus the oembed fetch.
  */
 export async function createSaveFromImage(base64: string, userId: string): Promise<SavedItem> {
+  await assertCanSave(userId); // free-tier gate (inert until launch)
+
   const path = `${userId}/uploads/${Date.now()}.jpg`;
   const { error: upErr } = await supabase.storage
     .from('user-media')

@@ -4,6 +4,7 @@ import { useShareIntent } from 'expo-share-intent';
 import { useAuthStore } from '../store/auth';
 import { useLibraryStore } from '../store/library';
 import { createSaveFromShare } from '../lib/api/saveItem';
+import { PaywallRequiredError } from '../lib/subscription';
 
 /**
  * Catches content shared into SaveBot from the iOS/Android share sheet
@@ -33,6 +34,9 @@ export function ShareIntentHandler() {
         );
         addItem(item);
         router.replace('/(tabs)/library');
+      } catch (e) {
+        if (e instanceof PaywallRequiredError) router.replace('/upgrade');
+        else console.warn('[ShareIntentHandler] save failed', e);
       } finally {
         resetShareIntent();
       }
