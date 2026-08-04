@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SaveBot — How to Test the App</title>
+<style>
+  :root {
+    --ink: #1c1b29;
+    --muted: #5b5870;
+    --line: #e6e4ef;
+    --accent: #4f46e5;      /* indigo — SaveBot's app accent */
+    --accent-soft: #eef0fe;
+    --amber-bg: #fff8e6;
+    --amber-line: #f5d78a;
+    --amber-ink: #7a5b00;
+    --green-bg: #edfaf1;
+    --green-line: #b6e6c6;
+    --green-ink: #1c6b3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f4f3f9;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 48px 56px 64px;
+  }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 20px;
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  h1 { font-size: 30px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); font-size: 15.5px; margin: 0; max-width: 60ch; }
+  h2 {
+    font-size: 19px;
+    margin: 34px 0 8px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    letter-spacing: -0.01em;
+  }
+  h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 8px;
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700; margin-right: 10px; vertical-align: 2px;
+  }
+  h3 { font-size: 15px; margin: 18px 0 4px; }
+  p { margin: 8px 0; }
+  ol.steps { margin: 10px 0; padding-left: 22px; }
+  ol.steps > li { margin: 7px 0; padding-left: 4px; }
+  ul.plain { margin: 8px 0; padding-left: 20px; }
+  ul.plain li { margin: 5px 0; }
+  strong { color: var(--ink); }
+  .muted { color: var(--muted); }
+  .callout {
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border: 1px solid var(--line);
+    background: #faf9fe;
+  }
+  .callout .label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    margin: 0 0 4px;
+  }
+  .callout.tip { background: var(--accent-soft); border-color: #d7d9fb; }
+  .callout.tip .label { color: var(--accent); }
+  .callout.heads-up { background: var(--amber-bg); border-color: var(--amber-line); }
+  .callout.heads-up .label { color: var(--amber-ink); }
+  .callout.report { background: var(--green-bg); border-color: var(--green-line); }
+  .callout.report .label { color: var(--green-ink); }
+  .callout p { margin: 4px 0; }
+  .footer {
+    margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 13px;
+  }
+  a { color: var(--accent); }
+  @media print {
+    body { background: #fff; font-size: 12.5px; }
+    .page { max-width: none; padding: 0 8px; }
+    h2 { break-after: avoid; }
+    ol.steps > li, .callout { break-inside: avoid; }
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc">
+    <p class="eyebrow">SaveBot · Test Build</p>
+    <h1>How to Test SaveBot</h1>
+    <p class="lede">A quick, no-jargon walkthrough so you can try the app end to end and tell me what feels great and what feels off. This is an early test build — the core experience is here; a couple of things are still coming (noted at the end).</p>
+  </header>
+
+  <p style="margin-top:20px;">SaveBot is your personal place to save posts from Instagram, TikTok, YouTube and more — and it uses AI to turn each one into a clean, organized card (a recipe, a workout, a travel list, and so on) that you can actually find and use later.</p>
+
+  <div class="callout tip">
+    <p class="label">How to open it on your iPhone</p>
+    <p>For now, test SaveBot in <strong>Safari on your iPhone</strong> — just open the <strong>web link I sent you</strong>. Tip: tap the <strong>Share</strong> icon in Safari → <strong>Add to Home Screen</strong> so it opens full-screen like a real app. The installable iPhone app is coming next via TestFlight; this web version lets you try almost everything today.</p>
+    <p style="margin-top:6px;">Give AI saves a few seconds — you'll see a short "Processing…" state, then the finished card.</p>
+  </div>
+
+  <h2><span class="num">1</span>Get in</h2>
+  <ol class="steps">
+    <li>Open the web link in Safari.</li>
+    <li>Create an account or sign in. You can use <strong>email</strong>, <strong>Sign in with Google</strong>, or <strong>Sign in with Apple</strong> — try whichever you'd normally use.</li>
+    <li>Confirm you land on your library after signing in, and that signing out and back in remembers you.</li>
+  </ol>
+
+  <h2><span class="num">2</span>First-time setup (onboarding)</h2>
+  <ol class="steps">
+    <li>On a brand-new account you'll get a few quick questions — what kind of content you save (recipes, workouts, travel…), which apps you save from, and how you like things organized.</li>
+    <li>Answer honestly — the app uses this to arrange your categories for you.</li>
+    <li>Check that after setup, your categories match what you picked (the stuff you care about shows first).</li>
+  </ol>
+
+  <h2><span class="num">3</span>Save something (the main event)</h2>
+  <p class="muted">On the web version, use <strong>Add</strong> to save things. (Sharing straight from Instagram/TikTok needs the installable app — see the note below.)</p>
+  <ol class="steps">
+    <li>Tap the <strong>Add</strong> button.</li>
+    <li><strong>Paste a link</strong> — copy the share link of a public <strong>TikTok</strong> or <strong>YouTube</strong> video and paste it in. Watch it process, then open the finished card.</li>
+    <li><strong>Paste or type text</strong> — e.g. paste a recipe or some notes and let the AI organize it.</li>
+    <li><strong>Upload a photo</strong> — e.g. a screenshot of a recipe; the AI reads the text and builds a card.</li>
+    <li>For each one, open the result and check the AI got it roughly right — title, summary, key details, a sensible category, and tags.</li>
+  </ol>
+  <div class="callout heads-up">
+    <p class="label">Two things to expect</p>
+    <p><strong>1. Sharing from other apps</strong> (tap Share in TikTok → SaveBot) works in the installable app, not the web version — it's coming to your iPhone via TestFlight. For now, "paste a link" tests the exact same save → AI → card flow.</p>
+    <p style="margin-top:6px;"><strong>2. TikTok and YouTube</strong> pull in the best right now. <strong>Instagram and Facebook</strong> are limited in this build (they lock their posts down), so don't be surprised if those come back thin — that's expected, not a bug.</p>
+  </div>
+
+  <h2><span class="num">4</span>Look at the card two ways</h2>
+  <ol class="steps">
+    <li>Inside an item, switch between <strong>Clean View</strong> (the tidy AI version) and <strong>Original View</strong> (the post as it was, with the video playing inline where possible).</li>
+    <li>Confirm the toggle works and the app remembers which view you prefer.</li>
+  </ol>
+
+  <h2><span class="num">5</span>Find and organize</h2>
+  <ol class="steps">
+    <li>Use <strong>Search</strong> at the top — type a word from something you saved and check it comes up. Try the <strong>filter chips</strong> (by category, type, platform, date).</li>
+    <li>Browse your <strong>categories</strong>, switch between <strong>grid and list</strong>, and check the <strong>Recent</strong> and <strong>Favorites</strong> tabs.</li>
+    <li>Try <strong>managing categories</strong> — rename, reorder, hide, or add a new one — and make sure your items still show where you'd expect.</li>
+  </ol>
+
+  <h2><span class="num">6</span>Recipe Cook Mode</h2>
+  <ol class="steps">
+    <li>Open any recipe you saved and start <strong>Cook Mode</strong>.</li>
+    <li>Check the big, kitchen-friendly text, that the <strong>screen stays awake</strong>, that you can <strong>move through the steps</strong>, use the <strong>per-step timer</strong>, and adjust <strong>servings</strong>.</li>
+  </ol>
+
+  <h2><span class="num">7</span>Edit &amp; tidy an item</h2>
+  <ol class="steps">
+    <li>On any saved item, try <strong>favorite</strong>, <strong>archive</strong>, and <strong>delete</strong>.</li>
+    <li>Edit its <strong>notes</strong>, tweak <strong>tags</strong>, and change its <strong>category</strong> — and confirm the changes stick.</li>
+  </ol>
+
+  <h2><span class="num">8</span>What's not ready yet</h2>
+  <p class="muted">So you know what to skip for now — these are coming, not broken:</p>
+  <ul class="plain">
+    <li><strong>The installable iPhone app</strong> (with share-from-other-apps saving) — coming next via TestFlight. For now it's the web version in Safari.</li>
+    <li><strong>Payments / subscriptions</strong> — the last piece we'll build. Everything is free to use in this test.</li>
+    <li><strong>Instagram / Facebook</strong> full content — limited on purpose for now.</li>
+    <li><strong>Full photo carousels &amp; video transcripts</strong> — we save the main thumbnail today; grabbing every image and the spoken words needs a bit more plumbing.</li>
+    <li><strong>Sharing to friends, profiles, following</strong> — later roadmap.</li>
+  </ul>
+
+  <div class="callout report">
+    <p class="label">How to tell me what you find</p>
+    <p>For anything that looks off, jot down three things: <strong>what you did</strong>, <strong>what you expected</strong>, and <strong>what actually happened</strong> — a screenshot or screen recording is gold. Small stuff counts too (wording, spacing, anything confusing).</p>
+  </div>
+
+  <div class="footer">
+    Thanks for testing 🙏 — take your time, poke at everything, and be brutally honest. This is exactly how we make it great before launch.
+  </div>
+
+</div>
+</body>
+</html>
