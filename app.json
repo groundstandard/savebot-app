@@ -62,7 +62,23 @@
             "NSExtensionActivationSupportsImageWithMaxCount": 1,
             "NSExtensionActivationSupportsText": true
           },
-          "androidIntentFilters": ["text/*", "image/*"]
+          "androidIntentFilters": [
+            "text/*",
+            "image/*"
+          ]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#6366F1",
+          "image": "./assets/android-icon-foreground.png",
+          "imageWidth": 220,
+          "dark": {
+            "backgroundColor": "#6366F1",
+            "image": "./assets/android-icon-foreground.png",
+            "imageWidth": 220
+          }
         }
       ]
     ],

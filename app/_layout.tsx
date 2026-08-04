@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '../src/hooks/useAuth';
@@ -10,12 +11,20 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useThemeStore } from '../src/store/theme';
 import { useIsDark } from '../src/hooks/useColors';
 
+// Hold the branded native splash (indigo + bookmark) until JS mounts, so it
+// hands off seamlessly to the animated LoadingScreen — no default grid flash.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
   useAuth(); // Initialize auth listener at root
   useSaveNotifications(); // Local "✓ Saved" notification when processing completes
   const loadTheme = useThemeStore((s) => s.load);
   const isDark = useIsDark();
-  useEffect(() => { loadTheme(); }, []);
+  useEffect(() => {
+    loadTheme();
+    // Reveal the JS UI (the animated LoadingScreen picks up the same branding).
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
