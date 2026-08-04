@@ -6,6 +6,8 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibraryStore } from '../../../src/store/library';
+import { useSubscriptionStore } from '../../../src/store/subscription';
+import { canUseSubcategories } from '../../../src/lib/subscription';
 import { useColors } from '../../../src/hooks/useColors';
 import { SavedItemRow } from '../../../src/components/library/SavedItemRow';
 import { ConfirmModal } from '../../../src/components/ConfirmModal';
@@ -19,6 +21,7 @@ export default function CategoryScreen() {
     items, loading, fetchItems,
     subcategories, fetchSubcategories, createSubcategory, renameSubcategory, deleteSubcategory, mergeSubcategory,
   } = useLibraryStore();
+  const isPro = useSubscriptionStore((s) => s.isPro);
 
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
@@ -40,6 +43,8 @@ export default function CategoryScreen() {
   async function handleAddSub() {
     const trimmed = newSub.trim();
     if (!trimmed) return;
+    // Subcategories are Pro-only on the free tier (PRD §6).
+    if (!canUseSubcategories(isPro)) { router.push('/upgrade'); return; }
     await createSubcategory(categoryId, trimmed);
     setNewSub('');
   }

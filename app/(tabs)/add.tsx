@@ -9,7 +9,8 @@ import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
 import { router } from 'expo-router';
 import { createSaveFromShare, createSaveFromImage } from '../../src/lib/api/saveItem';
-import { PaywallRequiredError } from '../../src/lib/subscription';
+import { PaywallRequiredError, canManualAdd } from '../../src/lib/subscription';
+import { useSubscriptionStore } from '../../src/store/subscription';
 import { successFeedback } from '../../src/lib/haptics';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
@@ -32,9 +33,12 @@ export default function AddScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const { session } = useAuthStore();
   const { addItem } = useLibraryStore();
+  const isPro = useSubscriptionStore((s) => s.isPro);
 
   async function handleAdd() {
     if (!input.trim() || !session) return;
+    // Manual content addition is Pro-only on the free tier (PRD §6).
+    if (!canManualAdd(isPro)) { router.push('/upgrade'); return; }
     setLoading(true);
     setErrorMsg('');
     setSuccessMsg('');
@@ -54,6 +58,8 @@ export default function AddScreen() {
 
   async function handleImagePick() {
     if (!session) return;
+    // Manual content addition is Pro-only on the free tier (PRD §6).
+    if (!canManualAdd(isPro)) { router.push('/upgrade'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
     if (result.canceled) return;
     const asset = result.assets?.[0];

@@ -13,11 +13,12 @@ export async function createSaveFromShare(
   payload: SharePayload,
   userId: string
 ): Promise<SavedItem> {
-  await assertCanSave(userId); // free-tier gate (inert until launch)
-
   // A shared payload may carry the URL in `url` or embedded in `text`.
   const url = payload.url ?? extractUrl(payload.text) ?? undefined;
   const parsed = parseSharedUrl(url);
+
+  // Free-tier gate (inert until launch): Instagram-only + monthly cap (PRD §6).
+  await assertCanSave(userId, parsed.platform);
 
   // Insert a pending item immediately so the user gets instant feedback.
   // original_post_data seeds the fetcher (n8n) and the Original View.
