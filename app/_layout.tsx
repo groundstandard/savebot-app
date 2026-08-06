@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { ShareIntentProvider } from 'expo-share-intent';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -29,6 +30,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
+        {/* ShareIntentProvider sits above the app's other providers so it can
+            catch a share (incl. cold-start) and feed useShareIntentContext.
+            Kept inside the ErrorBoundary so a share-intent failure can't
+            white-screen the whole app (Bobby 2026-08-06). */}
+        <ShareIntentProvider options={{ resetOnBackground: true }}>
         <SafeAreaProvider>
           {/* Isolated so a share-intent failure can never blank the whole app. */}
           <ErrorBoundary fallback={null}>
@@ -47,6 +53,7 @@ export default function RootLayout() {
             <Stack.Screen name="cook-mode/[id]" options={{ presentation: 'fullScreenModal' }} />
           </Stack>
         </SafeAreaProvider>
+        </ShareIntentProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

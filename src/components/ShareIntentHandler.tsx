@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { router } from 'expo-router';
-import { useShareIntent } from 'expo-share-intent';
+import { useShareIntentContext } from 'expo-share-intent';
 import { useAuthStore } from '../store/auth';
 import { useLibraryStore } from '../store/library';
 import { createSaveFromShare } from '../lib/api/saveItem';
@@ -15,7 +15,7 @@ import { PaywallRequiredError } from '../lib/subscription';
  * ever missed, wrap the app in <ShareIntentProvider> instead of this hook.
  */
 export function ShareIntentHandler() {
-  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const session = useAuthStore((s) => s.session);
   const addItem = useLibraryStore((s) => s.addItem);
 
