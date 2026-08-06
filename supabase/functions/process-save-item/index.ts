@@ -120,21 +120,39 @@ serve(async (req) => {
       ? await n8nText(N8N_TRANSCRIBE_WEBHOOK_URL, { audio_url: videoUrl })
       : '';
 
-    // ── 4. AI extraction (n8n) — enriched with caption + OCR + transcript.
+    // ── 3b. YouTube real content: the video's title + full description (and a
+    // caption transcript when the track is served). oembed only exposes the
+    // title, so without this the AI has nothing to analyze and returns a generic
+    // "it's a YouTube video" summary (Bobby's TestFlight report, 2026-08-06).
+    let yt: { title?: string; description?: string; transcript?: string } = {};
+    if (item.source_platform === 'youtube' && opd.content_id) {
+      yt = await fetchYouTubeContent(String(opd.content_id));
+    }
+
+    // ── 4. AI extraction (n8n) — enriched with title + description + OCR + transcript.
     const { data: user } = await supabase.from('users').select('onboarding_preferences').eq('id', item.user_id).single();
     const { data: categories } = await supabase.from('categories').select('id, name').eq('user_id', item.user_id);
 
-    const caption = item.raw_caption ?? oembed.title ?? null;
+    // Prefer the real video title; the shared text is often just the URL.
+    const caption = oembed.title ?? yt.title ?? item.raw_caption ?? null;
     const assembled = [
       caption,
+      yt.description ? `Description:\n${yt.description}` : '',
+      (yt.transcript || transcript) ? `Transcript:\n${yt.transcript || transcript}` : '',
       ocrText ? `On-screen text:\n${ocrText}` : '',
-      transcript ? `Transcript:\n${transcript}` : '',
     ].filter(Boolean).join('\n\n');
 
     const update: Record<string, any> = {
       raw_caption: caption,
       source_creator_handle: oembed.author_name ?? item.source_creator_handle ?? null,
-      original_post_data: { ...opd, oembed, ocr: ocrText || null, transcript: transcript || null },
+      original_post_data: {
+        ...opd, oembed,
+        youtube: (yt.description || yt.transcript)
+          ? { description: yt.description ?? null, transcript: yt.transcript ?? null }
+          : undefined,
+        ocr: ocrText || null,
+        transcript: (yt.transcript || transcript) || null,
+      },
       processing_status: 'complete',
     };
 
@@ -232,4 +250,79 @@ Return valid JSON only. No explanation.`;
 function parseJSON(text: string): any {
   const clean = text.replace(/```json\n?|\n?```/g, '').trim();
   try { return JSON.parse(clean); } catch { return {}; }
+}
+
+/**
+ * Best-effort fetch of a YouTube video's real content by reading the watch page
+ * (no API key). Returns the title + full description reliably; the caption
+ * transcript is included when YouTube serves it, but timedtext now usually needs
+ * a proof-of-origin token, so the description is the dependable content signal.
+ * Never throws — returns {} on any failure so processing degrades gracefully.
+ */
+async function fetchYouTubeContent(
+  videoId: string
+): Promise<{ title?: string; description?: string; transcript?: string }> {
+  try {
+    const res = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cookie': 'CONSENT=YES+1',
+      },
+    });
+    if (!res.ok) return {};
+    const html = await res.text();
+    const player = extractJsonObject(html, 'ytInitialPlayerResponse');
+    if (!player) return {};
+
+    const details = player.videoDetails ?? {};
+    const title: string | undefined = details.title || undefined;
+    let description: string | undefined = (details.shortDescription ?? '').toString().trim() || undefined;
+    if (description && description.length > 3000) description = description.slice(0, 3000) + '…';
+
+    let transcript: string | undefined;
+    const tracks = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (Array.isArray(tracks) && tracks.length) {
+      const track = tracks.find((t: any) => (t.languageCode ?? '').startsWith('en')) ?? tracks[0];
+      if (track?.baseUrl) {
+        try {
+          const cr = await fetch(track.baseUrl + '&fmt=json3');
+          const body = cr.ok ? await cr.text() : '';
+          if (body) {
+            const cj = JSON.parse(body);
+            const text = (cj.events ?? [])
+              .flatMap((e: any) => (e.segs ?? []).map((s: any) => s.utf8 ?? ''))
+              .join('')
+              .replace(/\s+/g, ' ')
+              .trim();
+            if (text) transcript = text.length > 12000 ? text.slice(0, 12000) + '…' : text;
+          }
+        } catch { /* transcript optional — timedtext often needs a pot token now */ }
+      }
+    }
+    return { title, description, transcript };
+  } catch {
+    return {};
+  }
+}
+
+/** Extract the first balanced {...} JSON object appearing after `marker` in `src`. */
+function extractJsonObject(src: string, marker: string): any | null {
+  const start = src.indexOf(marker);
+  if (start === -1) return null;
+  const i = src.indexOf('{', start);
+  if (i === -1) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let j = i; j < src.length; j++) {
+    const ch = src[j];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') { if (--depth === 0) { try { return JSON.parse(src.slice(i, j + 1)); } catch { return null; } } }
+  }
+  return null;
 }
