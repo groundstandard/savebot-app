@@ -15,7 +15,10 @@ export const PAYWALL_ENABLED = false;
 
 // PRD §6 — Free tier caps.
 export const FREE_SAVE_LIMIT = 5; // 5 saves per month
-export const FREE_PLATFORMS = ['instagram']; // single-platform (Instagram only)
+// Free = the platforms that pull at ~zero cost (YouTube + TikTok). Instagram,
+// Facebook and X lock their posts, so fetching them costs money via the scraper
+// — those are Pro-only (Bobby's call, 2026-08-07, from the scraper economics).
+export const FREE_PLATFORMS = ['youtube', 'tiktok'];
 // Also Pro-only on the free tier: manual content addition + subcategories.
 // (Structured extraction is server-side; semantic search / social / watermarks
 // aren't built yet — those gates land with those features.)
@@ -37,7 +40,7 @@ export function canManualAdd(isPro: boolean): boolean {
 export function canUseSubcategories(isPro: boolean): boolean {
   return !gatingActive(isPro);
 }
-/** Saving from a platform — free tier is Instagram-only. */
+/** Saving from a platform — free tier is YouTube + TikTok (the no-cost pulls). */
 export function canSaveFromPlatform(platform: string | null | undefined, isPro: boolean): boolean {
   if (!gatingActive(isPro)) return true;
   return !!platform && FREE_PLATFORMS.includes(platform);
@@ -65,7 +68,7 @@ export async function getSavesThisMonth(userId: string): Promise<number> {
 
 /**
  * Gate a save. No-op unless the paywall is on AND the user is free-tier — then
- * it enforces PRD §6: Instagram-only + the 5-saves/month cap. Throws
+ * it enforces PRD §6: YouTube/TikTok-only + the 5-saves/month cap. Throws
  * PaywallRequiredError so the caller can route to /upgrade. Omit `platform` to
  * skip the platform check (e.g. a manual image, which the Add screen already
  * gates behind Pro).

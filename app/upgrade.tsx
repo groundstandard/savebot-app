@@ -8,7 +8,7 @@ import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../
 
 const FEATURES = [
   'Unlimited saves',
-  'All platforms (Instagram, TikTok, YouTube, Facebook, X)',
+  'Save from Instagram, Facebook & X (free covers TikTok + YouTube)',
   'Full AI extraction & structured cards',
   'Semantic search',
   'Social sharing & public profile',
