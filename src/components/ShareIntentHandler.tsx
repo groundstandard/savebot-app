@@ -4,7 +4,8 @@ import { useShareIntentContext } from 'expo-share-intent';
 import { useAuthStore } from '../store/auth';
 import { useLibraryStore } from '../store/library';
 import { createSaveFromShare } from '../lib/api/saveItem';
-import { PaywallRequiredError } from '../lib/subscription';
+import { Alert } from 'react-native';
+import { PaywallRequiredError, FairUseLimitError } from '../lib/subscription';
 
 /**
  * Catches content shared into SaveBot from the iOS/Android share sheet
@@ -36,6 +37,7 @@ export function ShareIntentHandler() {
         router.replace('/(tabs)/library');
       } catch (e) {
         if (e instanceof PaywallRequiredError) router.replace('/upgrade');
+        else if (e instanceof FairUseLimitError) Alert.alert("Monthly limit reached", "You've saved the max Instagram, Facebook, and X posts for this month. It resets next month.");
         else console.warn('[ShareIntentHandler] save failed', e);
       } finally {
         resetShareIntent();

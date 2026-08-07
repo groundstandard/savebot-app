@@ -9,7 +9,7 @@ import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
 import { router } from 'expo-router';
 import { createSaveFromShare, createSaveFromImage } from '../../src/lib/api/saveItem';
-import { PaywallRequiredError, canManualAdd } from '../../src/lib/subscription';
+import { PaywallRequiredError, FairUseLimitError, canManualAdd } from '../../src/lib/subscription';
 import { useSubscriptionStore } from '../../src/store/subscription';
 import { successFeedback } from '../../src/lib/haptics';
 import { useColors } from '../../src/hooks/useColors';
@@ -51,6 +51,7 @@ export default function AddScreen() {
       setSuccessMsg('Saved! Your item is being analyzed.');
     } catch (e) {
       if (e instanceof PaywallRequiredError) router.push('/upgrade');
+      else if (e instanceof FairUseLimitError) setErrorMsg("You've hit this month's limit for Instagram, Facebook, and X saves. It resets next month.");
       else setErrorMsg('Failed to save. Check the URL and try again.');
     }
     setLoading(false);

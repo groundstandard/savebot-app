@@ -58,7 +58,7 @@ export default function Upgrade() {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.cta} onPress={() => setShowSoon(true)} activeOpacity={0.9}>
-          <Text style={styles.ctaText}>Start 7-day free trial</Text>
+          <Text style={styles.ctaText}>Start 30-day free trial</Text>
         </TouchableOpacity>
         <Text style={styles.fine}>Then {plan === 'annual' ? '$39.99/yr' : '$4.99/mo'}. Cancel anytime.</Text>
       </ScrollView>

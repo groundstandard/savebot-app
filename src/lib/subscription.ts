@@ -19,6 +19,13 @@ export const FREE_SAVE_LIMIT = 5; // 5 saves per month
 // Facebook and X lock their posts, so fetching them costs money via the scraper
 // — those are Pro-only (Bobby's call, 2026-08-07, from the scraper economics).
 export const FREE_PLATFORMS = ['youtube', 'tiktok'];
+
+// Fair-use guard on the paid-scraper platforms (Instagram, Facebook, X): even a
+// Pro or 30-day-trial user is capped here per month, so one heavy user can't run
+// up an open-ended scraper bill. Independent of PAYWALL_ENABLED — a cost guard,
+// not a paywall. At ~$0.007/fetch this bounds worst-case to ~$7/user/month.
+export const SCRAPER_PLATFORMS = ['instagram', 'facebook', 'x'];
+export const MONTHLY_SCRAPER_CAP = 1000;
 // Also Pro-only on the free tier: manual content addition + subcategories.
 // (Structured extraction is server-side; semantic search / social / watermarks
 // aren't built yet — those gates land with those features.)
@@ -54,6 +61,14 @@ export class PaywallRequiredError extends Error {
   }
 }
 
+/** Thrown when a user hits the monthly fair-use cap on the paid-scraper platforms. */
+export class FairUseLimitError extends Error {
+  constructor() {
+    super('Monthly Instagram/Facebook/X limit reached');
+    this.name = 'FairUseLimitError';
+  }
+}
+
 /** How many items the user has saved in the current (UTC) calendar month. */
 export async function getSavesThisMonth(userId: string): Promise<number> {
   const now = new Date();
@@ -74,8 +89,28 @@ export async function getSavesThisMonth(userId: string): Promise<number> {
  * gates behind Pro).
  */
 export async function assertCanSave(userId: string, platform?: string | null): Promise<void> {
+  // Fair-use cap on the paid-scraper platforms — applies to EVERYONE who can
+  // reach them (Pro / trial), independent of the paywall, so one heavy user
+  // can't run up an open-ended scraper bill within the free trial.
+  if (platform && SCRAPER_PLATFORMS.includes(platform)) {
+    if ((await getScraperSavesThisMonth(userId)) >= MONTHLY_SCRAPER_CAP) throw new FairUseLimitError();
+  }
+  // Free-tier paywall gates (inert until launch; free users only).
   if (!gatingActive(isProNow())) return;
   if (platform !== undefined && !FREE_PLATFORMS.includes(platform ?? '')) throw new PaywallRequiredError();
   const used = await getSavesThisMonth(userId);
   if (used >= FREE_SAVE_LIMIT) throw new PaywallRequiredError();
+}
+
+/** How many paid-scraper-platform items the user saved this (UTC) month. */
+export async function getScraperSavesThisMonth(userId: string): Promise<number> {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { count } = await supabase
+    .from('saved_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .in('source_platform', SCRAPER_PLATFORMS)
+    .gte('created_at', monthStart);
+  return count ?? 0;
 }
