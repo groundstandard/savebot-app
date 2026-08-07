@@ -221,6 +221,7 @@ CRITICAL — accuracy over completeness. This is the most important rule:
 - NEVER invent, guess, or infer specifics. Do NOT fabricate tips, steps, ingredients, numbers, or any list items just to fill the schema. Making up plausible-sounding content is a failure.
 - If the actual details are not in the content, return an EMPTY list ([]) for them and write only a short, honest, general summary of what the content appears to be about. An empty list is correct; an invented list is wrong.
 - Set "confidence" from how much real detail you actually had: only a title / thin description and no transcript → 0.2 or lower.
+- Never copy the placeholder text from the schema. If there is genuinely no usable content, write a brief honest summary such as "Not enough detail was available to analyze this item." and leave all lists empty.
 
 Analyze this content and return a JSON object:
 
