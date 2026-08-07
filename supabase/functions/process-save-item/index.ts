@@ -216,7 +216,13 @@ function buildExtractionPrompt({ caption, url, platform, userPrefs, categories }
 
   return `You are a content analysis engine for SaveBot — an AI-powered personal knowledge library.
 
-Analyze this social media content and return a JSON object:
+CRITICAL — accuracy over completeness. This is the most important rule:
+- Use ONLY facts that are explicitly present in the content provided below (title, description, transcript, on-screen text).
+- NEVER invent, guess, or infer specifics. Do NOT fabricate tips, steps, ingredients, numbers, or any list items just to fill the schema. Making up plausible-sounding content is a failure.
+- If the actual details are not in the content, return an EMPTY list ([]) for them and write only a short, honest, general summary of what the content appears to be about. An empty list is correct; an invented list is wrong.
+- Set "confidence" from how much real detail you actually had: only a title / thin description and no transcript → 0.2 or lower.
+
+Analyze this content and return a JSON object:
 
 {
   "content_type": "recipe|workout|travel|product|education|advice|entertainment|other",
@@ -243,7 +249,7 @@ For structured_data, ALWAYS include a "type" field, and use the schema appropria
 - product → { "type": "product", product_name, brand, price, where_to_buy, pros: [], cons: [], category }
 - education/advice/entertainment/other → { "type": "generic", title, key_points: [], actionable_items: [] }
 
-Use null for unknown scalar fields and [] for unknown lists. Never omit the "type" field.
+Use null for unknown scalar fields and [] for unknown lists — always prefer empty over invented. Never omit the "type" field. Never fabricate content that isn't in the source above.
 Return valid JSON only. No explanation.`;
 }
 
