@@ -11,6 +11,7 @@ const supabase = createClient(
 const N8N_AI_WEBHOOK_URL = Deno.env.get('N8N_AI_WEBHOOK_URL') ?? '';           // LLM extraction
 const N8N_OCR_WEBHOOK_URL = Deno.env.get('N8N_OCR_WEBHOOK_URL') ?? '';         // Vision OCR
 const N8N_TRANSCRIBE_WEBHOOK_URL = Deno.env.get('N8N_TRANSCRIBE_WEBHOOK_URL') ?? ''; // Whisper
+const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY') ?? ''; // official Data API (reliable title + description)
 
 const THUMB_BUCKET = 'thumbnails';
 
@@ -269,6 +270,26 @@ function parseJSON(text: string): any {
 async function fetchYouTubeContent(
   videoId: string
 ): Promise<{ title?: string; description?: string; transcript?: string }> {
+  // 1. Official Data API first — reliable title + description. The watch-page
+  // scrape below gets blocked from datacenter IPs (returns a consent/bot page),
+  // so this is the dependable path once a key is configured.
+  if (YOUTUBE_API_KEY) {
+    try {
+      const r = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`
+      );
+      if (r.ok) {
+        const sn = (await r.json())?.items?.[0]?.snippet;
+        if (sn?.title) {
+          let description = (sn.description ?? '').toString().trim() || undefined;
+          if (description && description.length > 3000) description = description.slice(0, 3000) + '…';
+          return { title: sn.title, description };
+        }
+      }
+    } catch { /* fall through to the page scrape */ }
+  }
+
+  // 2. Fallback: scrape the watch page (no key needed, but fragile).
   try {
     const res = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
       headers: {
