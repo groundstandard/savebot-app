@@ -12,6 +12,7 @@ const N8N_AI_WEBHOOK_URL = Deno.env.get('N8N_AI_WEBHOOK_URL') ?? '';           /
 const N8N_OCR_WEBHOOK_URL = Deno.env.get('N8N_OCR_WEBHOOK_URL') ?? '';         // Vision OCR
 const N8N_TRANSCRIBE_WEBHOOK_URL = Deno.env.get('N8N_TRANSCRIBE_WEBHOOK_URL') ?? ''; // Whisper
 const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY') ?? ''; // official Data API (reliable title + description)
+const N8N_INSTAGRAM_WEBHOOK_URL = Deno.env.get('N8N_INSTAGRAM_WEBHOOK_URL') ?? ''; // n8n → scraper: IG/FB post content
 
 const THUMB_BUCKET = 'thumbnails';
 
@@ -29,6 +30,35 @@ async function n8nText(url: string, payload: Record<string, unknown>): Promise<s
     return (json.text ?? '').toString().trim();
   } catch {
     return '';
+  }
+}
+
+/**
+ * Instagram / Facebook post content via the n8n workflow (which calls a scraper
+ * such as Apify). Sends { url }, expects { caption, author, thumbnail_url }.
+ * Returns {} on any failure so processing degrades gracefully; never throws.
+ */
+async function fetchInstagramContent(
+  url: string
+): Promise<{ caption?: string; author?: string; thumbnailUrl?: string }> {
+  if (!N8N_INSTAGRAM_WEBHOOK_URL || !url) return {};
+  try {
+    const res = await fetch(N8N_INSTAGRAM_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return {};
+    const j = await res.json();
+    let caption = (j.caption ?? '').toString().trim() || undefined;
+    if (caption && caption.length > 3000) caption = caption.slice(0, 3000) + '…';
+    return {
+      caption,
+      author: j.author || j.owner || j.ownerUsername || undefined,
+      thumbnailUrl: j.thumbnail_url || j.thumbnailUrl || j.displayUrl || undefined,
+    };
+  } catch {
+    return {};
   }
 }
 
@@ -64,10 +94,18 @@ serve(async (req) => {
       }
     }
 
+    // ── 1b. Instagram / Facebook lock their posts, so an n8n workflow (backed by
+    // a scraper) returns { caption, author, thumbnail_url } for the shared URL.
+    let ig: { caption?: string; author?: string; thumbnailUrl?: string } = {};
+    if ((item.source_platform === 'instagram' || item.source_platform === 'facebook') && item.source_url) {
+      ig = await fetchInstagramContent(item.source_url);
+    }
+
     // ── 2. Media: download the thumbnail → private bucket → saved_item_media. Best effort.
-    if (oembed.thumbnail_url) {
+    const thumbUrl = oembed.thumbnail_url ?? ig.thumbnailUrl ?? null;
+    if (thumbUrl) {
       try {
-        const img = await fetch(oembed.thumbnail_url);
+        const img = await fetch(thumbUrl);
         if (img.ok) {
           const bytes = new Uint8Array(await img.arrayBuffer());
           const path = `${item.user_id}/${saved_item_id}/thumb.jpg`;
@@ -110,7 +148,7 @@ serve(async (req) => {
         });
       }
     }
-    const ocrTarget = uploadedImageUrl ?? oembed.thumbnail_url;
+    const ocrTarget = uploadedImageUrl ?? oembed.thumbnail_url ?? ig.thumbnailUrl;
     const ocrText = ocrTarget
       ? await n8nText(N8N_OCR_WEBHOOK_URL, { image_url: ocrTarget })
       : '';
@@ -135,7 +173,7 @@ serve(async (req) => {
     const { data: categories } = await supabase.from('categories').select('id, name').eq('user_id', item.user_id);
 
     // Prefer the real video title; the shared text is often just the URL.
-    const caption = oembed.title ?? yt.title ?? item.raw_caption ?? null;
+    const caption = oembed.title ?? yt.title ?? ig.caption ?? item.raw_caption ?? null;
     const assembled = [
       caption,
       yt.description ? `Description:\n${yt.description}` : '',
@@ -145,7 +183,7 @@ serve(async (req) => {
 
     const update: Record<string, any> = {
       raw_caption: caption,
-      source_creator_handle: oembed.author_name ?? item.source_creator_handle ?? null,
+      source_creator_handle: oembed.author_name ?? ig.author ?? item.source_creator_handle ?? null,
       original_post_data: {
         ...opd, oembed,
         youtube: (yt.description || yt.transcript)
