@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "662012991723",
+    "project_id": "savebot-db4aa",
+    "storage_bucket": "savebot-db4aa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662012991723:android:d1ce9f91cb74daad2cc6ae",
+        "android_client_info": {
+          "package_name": "com.savebot.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB96_5e8Uj3zQuB9QWgfHfavdxbvKaDHKk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

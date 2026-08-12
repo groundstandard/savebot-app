@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SaveBot — App Walkthrough (Android)</title>
+<style>
+  :root {
+    --ink: #1c1b29;
+    --muted: #5b5870;
+    --line: #e6e4ef;
+    --accent: #4f46e5;      /* indigo — SaveBot's app accent */
+    --accent-soft: #eef0fe;
+    --amber-bg: #fff8e6;
+    --amber-line: #f5d78a;
+    --amber-ink: #7a5b00;
+    --green-bg: #edfaf1;
+    --green-line: #b6e6c6;
+    --green-ink: #1c6b3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f4f3f9;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .page { max-width: 820px; margin: 0 auto; background: #fff; padding: 48px 56px 64px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 8px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; font-weight: 700; color: var(--accent); margin: 0 0 6px; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); font-size: 15.5px; margin: 0; max-width: 62ch; }
+  h2 { font-size: 19px; margin: 34px 0 8px; padding-top: 22px; border-top: 1px solid var(--line); letter-spacing: -0.01em; }
+  h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; margin-right: 10px; vertical-align: 2px; }
+  h3 { font-size: 15px; margin: 18px 0 4px; }
+  p { margin: 8px 0; }
+  ol.steps { margin: 10px 0; padding-left: 22px; }
+  ol.steps > li { margin: 7px 0; padding-left: 4px; }
+  ul.plain { margin: 8px 0; padding-left: 20px; }
+  ul.plain li { margin: 5px 0; }
+  strong { color: var(--ink); }
+  .muted { color: var(--muted); }
+  .linkbox { display: block; word-break: break-all; margin: 10px 0; padding: 12px 16px; background: var(--accent-soft); border: 1px solid #d7d9fb; border-radius: 10px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; color: var(--accent); }
+  .callout { border-radius: 12px; padding: 14px 18px; margin: 16px 0; border: 1px solid var(--line); background: #faf9fe; }
+  .callout .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px; }
+  .callout.tip { background: var(--accent-soft); border-color: #d7d9fb; }
+  .callout.tip .label { color: var(--accent); }
+  .callout.heads-up { background: var(--amber-bg); border-color: var(--amber-line); }
+  .callout.heads-up .label { color: var(--amber-ink); }
+  .callout.report { background: var(--green-bg); border-color: var(--green-line); }
+  .callout.report .label { color: var(--green-ink); }
+  .callout.see { background: #f4f8ff; border-color: #cfe0ff; }
+  .callout.see .label { color: #2563a8; }
+  .callout p { margin: 4px 0; }
+  .footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  a { color: var(--accent); }
+  @media print {
+    body { background: #fff; font-size: 12.5px; }
+    .page { max-width: none; padding: 0 8px; }
+    h2 { break-after: avoid; }
+    ol.steps > li, .callout { break-inside: avoid; }
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc">
+    <p class="eyebrow">SaveBot · Final Test Build · Android</p>
+    <h1>SaveBot — a walkthrough of the whole app</h1>
+    <p class="lede">A friendly, no-jargon tour of everything SaveBot does — how to use each part and what you'll actually see on screen. Install the real app, try it end to end, and tell me what feels great and what feels off.</p>
+  </header>
+
+  <p style="margin-top:20px;">SaveBot is your personal place to save posts from <strong>Instagram, TikTok, YouTube, Facebook and X</strong> — and it uses AI to turn each one into a clean, organized card (a recipe, a workout, a travel list, a product, and so on) that you can actually find and use later. Think of it as a "second brain" for the stuff you save but never see again.</p>
+
+  <h2><span class="num">1</span>Install it on your Android phone</h2>
+  <p class="muted">SaveBot isn't on the Play Store yet, so you'll install it directly from a link. This is normal for test apps — it just takes one extra tap to allow it.</p>
+  <p><strong>Open this link on the phone you'll test on</strong> (tap it right on the Android device, not a computer):</p>
+  <a class="linkbox" href="https://expo.dev/accounts/ground-standard-agency/projects/savebot-app/builds/635719a5-8be9-4235-82bf-c187880755eb">https://expo.dev/accounts/ground-standard-agency/projects/savebot-app/builds/635719a5-8be9-4235-82bf-c187880755eb</a>
+  <ol class="steps">
+    <li>On that page, tap <strong>Install</strong> (or <strong>Download</strong>) — it downloads a file called an <strong>APK</strong> (that's just the app).</li>
+    <li>Open the downloaded file (pull down your notifications, or check <strong>Files → Downloads</strong>).</li>
+    <li>Android will likely say <em>"For your security, you can't install unknown apps from this source."</em> Tap <strong>Settings</strong> → turn on <strong>"Allow from this source"</strong> → go back → <strong>Install</strong>. (You can turn it back off after.)</li>
+    <li>Open <strong>SaveBot</strong> once it's installed, and <strong>allow notifications</strong> when it asks — that's how you'll get a "✓ Saved" alert.</li>
+  </ol>
+
+  <h2><span class="num">2</span>Sign in &amp; quick setup</h2>
+  <ol class="steps">
+    <li>Create an account or sign in with <strong>email</strong> or <strong>Sign in with Google</strong>. Closing and reopening the app should remember you.</li>
+    <li>On a brand-new account you'll get a few quick questions — what you save (recipes, workouts, travel…), which apps you save from, and how you like things organized.</li>
+    <li>Answer honestly — SaveBot uses this to arrange your categories so the stuff you care about shows first.</li>
+  </ol>
+
+  <h2><span class="num">3</span>Save something — the main event</h2>
+  <p>There are two ways in, and the <strong>Add</strong> tab (the purple <strong>+</strong> in the middle of the bottom bar) has four modes. Each mode shows its own quick "how-to" steps right on screen.</p>
+  <h3>A. Share straight from another app</h3>
+  <ol class="steps">
+    <li>Open <strong>TikTok, Instagram, YouTube, Facebook or X</strong>, find a post, and tap its <strong>Share</strong> button.</li>
+    <li>Pick <strong>SaveBot</strong> from the share sheet (tap "More" if you don't see it).</li>
+    <li>SaveBot catches it and starts analyzing.</li>
+  </ol>
+  <h3>B. Add it inside the app (tap the + Add tab)</h3>
+  <ul class="plain">
+    <li><strong>Link</strong> — paste any Instagram / TikTok / YouTube / Facebook / X link.</li>
+    <li><strong>Text</strong> — paste or type a note, tip, or idea.</li>
+    <li><strong>Image</strong> — pick a photo or screenshot; the AI reads any text and describes the picture.</li>
+    <li><strong>Voice</strong> — tap the mic and just talk; it turns your words into text you can review, then save.</li>
+  </ul>
+  <div class="callout see">
+    <p class="label">What you'll see</p>
+    <p>After you save, a <strong>progress pop-up</strong> appears: <em>"Analyzing with AI…"</em> with a spinner. It stays until the work is done (keep the app open) — you can't close it early, on purpose. Then it flips to <strong>"All done!"</strong> with a <strong>View</strong> button. You'll also get a <strong>"✓ Saved"</strong> notification, even if you've left the app.</p>
+  </div>
+
+  <h2><span class="num">4</span>What the AI gives you</h2>
+  <p>Open any saved item to see its <strong>card</strong>. Depending on the content, you'll get a tailored layout:</p>
+  <ul class="plain">
+    <li><strong>Recipe</strong> → dish name, time, servings, ingredients, step-by-step.</li>
+    <li><strong>Workout</strong> → exercises with sets/reps, equipment, target muscles.</li>
+    <li><strong>Travel</strong> → destination, places, tips.</li>
+    <li><strong>Product</strong> → name, price, where to buy, pros/cons.</li>
+    <li><strong>Anything else</strong> → a clean summary with key points and action items.</li>
+  </ul>
+  <p>Every item also gets a short <strong>summary</strong>, <strong>tags</strong>, and a <strong>category</strong> — filled in for you. Switch between <strong>Clean View</strong> (the tidy AI version) and <strong>Original</strong> (the post as it was, with the video playing inline where possible); the app remembers which you prefer.</p>
+  <div class="callout heads-up">
+    <p class="label">If you see "AI wasn't fully sure — double-check the details"</p>
+    <p>That just means the AI had less to work with — usually a photo or video <strong>without much caption</strong>. The details are still there; it's a gentle nudge to glance over them, not an error.</p>
+  </div>
+
+  <h2><span class="num">5</span>Find &amp; organize</h2>
+  <ol class="steps">
+    <li><strong>Search</strong> — type a word from something you saved. Flip on the <strong>✨ Smart</strong> toggle to search <em>by meaning</em> (e.g. "quick no-equipment workout") instead of exact words.</li>
+    <li>Use the <strong>filter chips</strong> — by category, type, platform, or date.</li>
+    <li>Browse your <strong>categories</strong>, switch <strong>grid ↔ list</strong>, and check the <strong>Recent</strong> and <strong>Favorites</strong> tabs.</li>
+    <li><strong>Manage categories</strong> — rename, reorder, hide, or add new ones (and add sub-categories).</li>
+  </ol>
+
+  <h2><span class="num">6</span>Recipe Cook Mode</h2>
+  <ol class="steps">
+    <li>Open any recipe and start <strong>Cook Mode</strong>.</li>
+    <li>Big kitchen-friendly text, the <strong>screen stays awake</strong>, step-by-step progression, a <strong>per-step timer</strong>, and a <strong>servings slider</strong> that recalculates the ingredients.</li>
+  </ol>
+
+  <h2><span class="num">7</span>Share &amp; export</h2>
+  <ol class="steps">
+    <li>On any item, tap the <strong>share icon</strong> → send a clean summary <strong>card</strong> to Messages, WhatsApp, email, anywhere. You choose whether to include your private notes.</li>
+    <li>In the same sheet, tap <strong>Export as PDF</strong> to save or send a nicely formatted PDF (great for recipes).</li>
+  </ol>
+
+  <h2><span class="num">8</span>Community — profiles, feed &amp; templates</h2>
+  <p class="muted">All under <strong>Profile → Community</strong>.</p>
+  <ol class="steps">
+    <li><strong>Make a save public</strong> — open an item and flip the <strong>Public</strong> toggle. Public saves show up on your profile and in your followers' feed. (Turn your whole profile public first in <strong>Privacy &amp; security</strong>.)</li>
+    <li><strong>Find people</strong> — search public users and open their profile to <strong>Follow</strong>.</li>
+    <li><strong>Following feed</strong> — see the saves the people you follow have shared publicly.</li>
+    <li><strong>Category templates</strong> — install a ready-made category setup someone shared, or <strong>publish your own</strong> setup for others.</li>
+  </ol>
+
+  <h2><span class="num">9</span>Edit, tidy &amp; archive</h2>
+  <ol class="steps">
+    <li>On any item: <strong>favorite</strong> it, edit its <strong>notes</strong>, tweak <strong>tags</strong>, and change its <strong>category</strong> — changes save on their own.</li>
+    <li><strong>Archive</strong> hides an item from your library without deleting it. Find archived items under <strong>Profile → Account → Archived items</strong>, where you can <strong>Restore</strong> or permanently <strong>Delete</strong> them.</li>
+  </ol>
+
+  <h2><span class="num">10</span>What's not ready yet</h2>
+  <p class="muted">So you know what to skip for now — these are coming, not broken:</p>
+  <ul class="plain">
+    <li><strong>Payments / subscriptions</strong> — the last piece we'll build. Everything is free to use in this test.</li>
+    <li><strong>X (Twitter) content</strong> — saves work, but the deep text pull-in is best-effort for now.</li>
+    <li><strong>iPhone version</strong> — this build is Android; the iOS test build comes next.</li>
+  </ul>
+
+  <div class="callout report">
+    <p class="label">How to tell me what you find</p>
+    <p>For anything that looks off, jot down three things: <strong>what you did</strong>, <strong>what you expected</strong>, and <strong>what actually happened</strong> — a screenshot or screen recording is gold. Small stuff counts too (wording, spacing, anything confusing).</p>
+  </div>
+
+  <div class="footer">
+    Thanks for testing 🙏 — take your time, poke at everything, and be brutally honest. This is exactly how we make it great before launch.
+  </div>
+
+</div>
+</body>
+</html>

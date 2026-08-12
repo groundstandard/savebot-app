@@ -11,6 +11,7 @@ import { ShareIntentHandler } from '../src/components/ShareIntentHandler';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { useThemeStore } from '../src/store/theme';
 import { useIsDark } from '../src/hooks/useColors';
+import { initMonitoring, track } from '../src/lib/analytics';
 
 // Hold the branded native splash (indigo + bookmark) until JS mounts, so it
 // hands off seamlessly to the animated LoadingScreen — no default grid flash.
@@ -22,6 +23,8 @@ export default function RootLayout() {
   const loadTheme = useThemeStore((s) => s.load);
   const isDark = useIsDark();
   useEffect(() => {
+    initMonitoring(); // crash reporting + analytics (no-op without keys)
+    track('app_opened');
     loadTheme();
     // Reveal the JS UI (the animated LoadingScreen picks up the same branding).
     SplashScreen.hideAsync().catch(() => {});

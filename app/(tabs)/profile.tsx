@@ -107,6 +107,19 @@ export default function ProfileScreen() {
           <SettingsRow icon="notifications-outline" label="Notifications" onPress={() => router.push('/notifications')} />
           <View style={styles.divider} />
           <SettingsRow icon="lock-closed-outline" label="Privacy & security" onPress={() => router.push('/privacy')} />
+          <View style={styles.divider} />
+          <SettingsRow icon="archive-outline" label="Archived items" onPress={() => router.push('/archived')} />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Community</Text>
+        <View style={styles.sectionCard}>
+          <SettingsRow icon="newspaper-outline" label="Following feed" onPress={() => router.push('/feed')} />
+          <View style={styles.divider} />
+          <SettingsRow icon="people-outline" label="Find people" onPress={() => router.push('/discover-people')} />
+          <View style={styles.divider} />
+          <SettingsRow icon="albums-outline" label="Category templates" onPress={() => router.push('/templates')} />
         </View>
       </View>
 

@@ -20,6 +20,7 @@
     },
     "android": {
       "package": "com.savebot.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
@@ -80,7 +81,14 @@
             "imageWidth": 220
           }
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "SaveBot needs the microphone so you can dictate notes."
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

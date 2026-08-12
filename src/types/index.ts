@@ -94,6 +94,7 @@ export interface SavedItem {
   user_notes: string | null;
   is_favorite: boolean;
   is_archived: boolean;
+  is_public: boolean;
   preferred_view: 'clean' | 'original';
   processing_status: ProcessingStatus;
   created_at: string;

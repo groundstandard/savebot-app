@@ -1,0 +1,69 @@
+{
+  "name": "SaveBot — TikTok Scraper",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "savebot-tiktok",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1a1e001-0001-4001-8001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "savebot-tiktok"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/clockworks~tiktok-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "token", "value": "PASTE_YOUR_APIFY_TOKEN_HERE" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ postURLs: [$json.body.url], resultsPerPage: 1, shouldDownloadVideos: false }) }}",
+        "options": {}
+      },
+      "id": "c1a1e001-0001-4001-8001-000000000002",
+      "name": "Apify TikTok",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map the TikTok scraper output to the contract SaveBot expects.\nconst first = $input.first().json;\nconst post = Array.isArray(first) ? (first[0] || {}) : first;\nconst vm = post.videoMeta || {};\nconst am = post.authorMeta || {};\nreturn [{ json: {\n  caption: post.text || \"\",\n  author: am.nickName || am.name || \"\",\n  thumbnail_url: vm.coverUrl || vm.originalCoverUrl || (Array.isArray(post.covers) ? post.covers[0] : \"\") || \"\",\n  video_url: (Array.isArray(post.mediaUrls) ? post.mediaUrls[0] : \"\") || vm.downloadAddr || \"\"\n} }];"
+      },
+      "id": "c1a1e001-0001-4001-8001-000000000003",
+      "name": "Map fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "c1a1e001-0001-4001-8001-000000000004",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Apify TikTok", "type": "main", "index": 0 }]] },
+    "Apify TikTok": { "main": [[{ "node": "Map fields", "type": "main", "index": 0 }]] },
+    "Map fields": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "active": false
+}

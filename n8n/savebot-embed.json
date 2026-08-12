@@ -1,0 +1,67 @@
+{
+  "name": "SaveBot — Embeddings",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "savebot-embed",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-savebot-embed",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-680, 0],
+      "webhookId": "savebot-embed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'text-embedding-3-small', input: ($json.body.text || '').toString().slice(0, 8000) }) }}",
+        "options": {}
+      },
+      "id": "openai-embeddings",
+      "name": "OpenAI Embeddings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-440, 0],
+      "credentials": {
+        "openAiApi": { "id": "XK8rP9sQUaUTSp4n", "name": "OpenAi account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// text-embedding-3-small returns 1536-dim vectors. Normalize to { embedding }.\nconst r = $json || {};\nconst emb = (r.data && r.data[0] && Array.isArray(r.data[0].embedding)) ? r.data[0].embedding : [];\nreturn [{ json: { embedding: emb } }];"
+      },
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-200, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [40, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "OpenAI Embeddings", "type": "main", "index": 0 }]] },
+    "OpenAI Embeddings": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "meta": { "templateId": "savebot-embed" }
+}

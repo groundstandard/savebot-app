@@ -39,14 +39,18 @@ async function saveDoneEnabled(): Promise<boolean> {
 }
 
 /** Fire a local "save complete" notification, respecting the user's pref. */
-export async function notifySaveComplete(title: string, categoryName?: string | null): Promise<void> {
+export async function notifySaveComplete(
+  title: string,
+  categoryName?: string | null,
+  itemId?: string,
+): Promise<void> {
   if (Platform.OS === 'web') return;
   if (!(await saveDoneEnabled())) return;
   if (!(await ensureNotificationPermission())) return;
 
   const body = categoryName ? `${title} → ${categoryName}` : title;
   await Notifications.scheduleNotificationAsync({
-    content: { title: '✓ Saved', body },
+    content: { title: '✓ Saved', body, data: itemId ? { itemId } : {} },
     trigger: null, // immediate
   });
 }

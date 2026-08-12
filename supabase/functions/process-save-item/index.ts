@@ -13,6 +13,9 @@ const N8N_OCR_WEBHOOK_URL = Deno.env.get('N8N_OCR_WEBHOOK_URL') ?? '';         /
 const N8N_TRANSCRIBE_WEBHOOK_URL = Deno.env.get('N8N_TRANSCRIBE_WEBHOOK_URL') ?? ''; // Whisper
 const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY') ?? ''; // official Data API (reliable title + description)
 const N8N_INSTAGRAM_WEBHOOK_URL = Deno.env.get('N8N_INSTAGRAM_WEBHOOK_URL') ?? ''; // n8n → scraper: IG/FB post content
+const N8N_EMBED_WEBHOOK_URL = Deno.env.get('N8N_EMBED_WEBHOOK_URL') ?? ''; // n8n → OpenAI embeddings (semantic search)
+const N8N_TIKTOK_WEBHOOK_URL = Deno.env.get('N8N_TIKTOK_WEBHOOK_URL') ?? ''; // n8n → scraper: TikTok caption + video
+const N8N_X_WEBHOOK_URL = Deno.env.get('N8N_X_WEBHOOK_URL') ?? ''; // n8n → scraper: X/Twitter full text
 
 const THUMB_BUCKET = 'thumbnails';
 
@@ -34,13 +37,35 @@ async function n8nText(url: string, payload: Record<string, unknown>): Promise<s
 }
 
 /**
+ * Embed text via the n8n embeddings webhook (OpenAI text-embedding-3-small, 1536-dim).
+ * Best-effort: returns null if unconfigured or on any failure, so semantic search is
+ * purely additive — the item still saves and stays keyword-searchable.
+ */
+async function embedText(text: string): Promise<number[] | null> {
+  if (!N8N_EMBED_WEBHOOK_URL || !text.trim()) return null;
+  try {
+    const res = await fetch(N8N_EMBED_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.slice(0, 8000) }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const emb = j.embedding ?? j.data?.[0]?.embedding;
+    return Array.isArray(emb) && emb.length === 1536 ? emb : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Instagram / Facebook post content via the n8n workflow (which calls a scraper
  * such as Apify). Sends { url }, expects { caption, author, thumbnail_url }.
  * Returns {} on any failure so processing degrades gracefully; never throws.
  */
 async function fetchInstagramContent(
   url: string
-): Promise<{ caption?: string; author?: string; thumbnailUrl?: string }> {
+): Promise<{ caption?: string; author?: string; thumbnailUrl?: string; videoUrl?: string }> {
   if (!N8N_INSTAGRAM_WEBHOOK_URL || !url) return {};
   try {
     const res = await fetch(N8N_INSTAGRAM_WEBHOOK_URL, {
@@ -56,9 +81,89 @@ async function fetchInstagramContent(
       caption,
       author: j.author || j.owner || j.ownerUsername || undefined,
       thumbnailUrl: j.thumbnail_url || j.thumbnailUrl || j.displayUrl || undefined,
+      videoUrl: j.video_url || j.videoUrl || undefined,
     };
   } catch {
     return {};
+  }
+}
+
+/**
+ * TikTok content via an n8n workflow (scraper). Sends { url }, expects
+ * { caption, author, thumbnail_url, video_url }. The video URL feeds Whisper
+ * transcription. Returns {} on any failure so processing degrades gracefully.
+ */
+async function fetchTikTokContent(
+  url: string
+): Promise<{ caption?: string; author?: string; thumbnailUrl?: string; videoUrl?: string }> {
+  if (!N8N_TIKTOK_WEBHOOK_URL || !url) return {};
+  try {
+    const res = await fetch(N8N_TIKTOK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return {};
+    const j = await res.json();
+    let caption = (j.caption ?? '').toString().trim() || undefined;
+    if (caption && caption.length > 3000) caption = caption.slice(0, 3000) + '…';
+    return {
+      caption,
+      author: j.author || j.authorName || undefined,
+      thumbnailUrl: j.thumbnail_url || j.thumbnailUrl || undefined,
+      videoUrl: j.video_url || j.videoUrl || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * X / Twitter content via an n8n workflow (scraper). Sends { url }, expects
+ * { caption, author } — fuller than oembed (full text / thread). {} on failure.
+ */
+async function fetchXContent(url: string): Promise<{ caption?: string; author?: string }> {
+  if (!N8N_X_WEBHOOK_URL || !url) return {};
+  try {
+    const res = await fetch(N8N_X_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return {};
+    const j = await res.json();
+    let caption = (j.caption ?? j.text ?? '').toString().trim() || undefined;
+    if (caption && caption.length > 3000) caption = caption.slice(0, 3000) + '…';
+    return { caption, author: j.author || j.authorName || undefined };
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Send a "✓ Saved" push to every device the user has registered (push_tokens),
+ * via the Expo Push API. Best-effort — a push failure never fails the save.
+ */
+async function sendSavePush(
+  userId: string,
+  title: string,
+  categoryName: string | null,
+  itemId: string
+): Promise<void> {
+  try {
+    const { data: tokens } = await supabase.from('push_tokens').select('token').eq('user_id', userId);
+    if (!tokens || tokens.length === 0) return;
+    const body = categoryName ? `${title} → ${categoryName}` : title;
+    const messages = tokens.map((t: { token: string }) => ({
+      to: t.token, title: '✓ Saved', body, sound: 'default', data: { itemId },
+    }));
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages),
+    });
+  } catch {
+    /* best-effort */
   }
 }
 
@@ -96,13 +201,24 @@ serve(async (req) => {
 
     // ── 1b. Instagram / Facebook lock their posts, so an n8n workflow (backed by
     // a scraper) returns { caption, author, thumbnail_url } for the shared URL.
-    let ig: { caption?: string; author?: string; thumbnailUrl?: string } = {};
+    let ig: { caption?: string; author?: string; thumbnailUrl?: string; videoUrl?: string } = {};
     if ((item.source_platform === 'instagram' || item.source_platform === 'facebook') && item.source_url) {
       ig = await fetchInstagramContent(item.source_url);
     }
 
+    // ── 1c. TikTok + X have thin oembed data, so use their own n8n scrapers.
+    // TikTok returns a video URL for Whisper transcription; X returns full text.
+    let tt: { caption?: string; author?: string; thumbnailUrl?: string; videoUrl?: string } = {};
+    if (item.source_platform === 'tiktok' && item.source_url) tt = await fetchTikTokContent(item.source_url);
+    let xc: { caption?: string; author?: string } = {};
+    if (item.source_platform === 'x' && item.source_url) xc = await fetchXContent(item.source_url);
+
     // ── 2. Media: download the thumbnail → private bucket → saved_item_media. Best effort.
-    const thumbUrl = oembed.thumbnail_url ?? ig.thumbnailUrl ?? null;
+    // We re-host the thumbnail on Supabase because platform CDN URLs (e.g. Instagram
+    // fbcdn) often can't be fetched by OpenAI's image analyzer — a Supabase signed
+    // URL can, so OCR/vision works on the re-hosted copy instead of the raw CDN link.
+    const thumbUrl = oembed.thumbnail_url ?? ig.thumbnailUrl ?? tt.thumbnailUrl ?? null;
+    let storedThumbUrl: string | null = null;
     if (thumbUrl) {
       try {
         const img = await fetch(thumbUrl);
@@ -113,6 +229,8 @@ serve(async (req) => {
             .from(THUMB_BUCKET)
             .upload(path, bytes, { contentType: 'image/jpeg', upsert: true });
           if (!upErr) {
+            const { data: signed } = await supabase.storage.from(THUMB_BUCKET).createSignedUrl(path, 600);
+            storedThumbUrl = signed?.signedUrl ?? null;
             // Replace any prior thumbnail row (safe on retry — no unique constraint needed).
             await supabase.from('saved_item_media')
               .delete().eq('saved_item_id', saved_item_id).eq('media_type', 'thumbnail');
@@ -148,13 +266,15 @@ serve(async (req) => {
         });
       }
     }
-    const ocrTarget = uploadedImageUrl ?? oembed.thumbnail_url ?? ig.thumbnailUrl;
+    const ocrTarget = uploadedImageUrl ?? storedThumbUrl ?? oembed.thumbnail_url ?? ig.thumbnailUrl ?? tt.thumbnailUrl;
     const ocrText = ocrTarget
       ? await n8nText(N8N_OCR_WEBHOOK_URL, { image_url: ocrTarget })
       : '';
     // Video isn't downloaded yet (only a thumbnail is stored), so this stays
     // empty until the media pipeline provides a video/audio URL.
-    const videoUrl = (opd.video_url as string | undefined) ?? null;
+    // Video/audio for transcription: the IG/FB scraper returns a video URL for
+    // Reels; Whisper (n8n) transcribes it. YouTube uses its caption track below.
+    const videoUrl = ig.videoUrl ?? tt.videoUrl ?? (opd.video_url as string | undefined) ?? null;
     const transcript = videoUrl
       ? await n8nText(N8N_TRANSCRIBE_WEBHOOK_URL, { audio_url: videoUrl })
       : '';
@@ -173,17 +293,17 @@ serve(async (req) => {
     const { data: categories } = await supabase.from('categories').select('id, name').eq('user_id', item.user_id);
 
     // Prefer the real video title; the shared text is often just the URL.
-    const caption = oembed.title ?? yt.title ?? ig.caption ?? item.raw_caption ?? null;
+    const caption = ig.caption ?? tt.caption ?? xc.caption ?? oembed.title ?? yt.title ?? item.raw_caption ?? null;
     const assembled = [
       caption,
       yt.description ? `Description:\n${yt.description}` : '',
       (yt.transcript || transcript) ? `Transcript:\n${yt.transcript || transcript}` : '',
-      ocrText ? `On-screen text:\n${ocrText}` : '',
+      ocrText ? `Image (visible text or description):\n${ocrText}` : '',
     ].filter(Boolean).join('\n\n');
 
     const update: Record<string, any> = {
       raw_caption: caption,
-      source_creator_handle: oembed.author_name ?? ig.author ?? item.source_creator_handle ?? null,
+      source_creator_handle: ig.author ?? tt.author ?? xc.author ?? oembed.author_name ?? item.source_creator_handle ?? null,
       original_post_data: {
         ...opd, oembed,
         youtube: (yt.description || yt.transcript)
@@ -236,7 +356,25 @@ serve(async (req) => {
       update.original_post_data = { ...opd, oembed, ocr: ocrText || null, transcript: transcript || null, ai_error: String(aiErr) };
     }
 
+    // ── 5. Embedding for semantic search (best-effort; needs N8N_EMBED_WEBHOOK_URL).
+    // Embed the richest text we have so natural-language queries can find this item.
+    const embedInput = [
+      update.ai_summary,
+      Array.isArray(update.ai_tags) ? update.ai_tags.join(' ') : '',
+      caption,
+      assembled,
+    ].filter(Boolean).join('\n');
+    const vector = await embedText(embedInput);
+    if (vector) update.embedding = vector;
+
     await supabase.from('saved_items').update(update).eq('id', saved_item_id);
+
+    // ── 6. Notify the user's devices (best-effort; needs a registered push token
+    // + a push-capable build). Foreground clients also get it via the app handler.
+    const notifyTitle = (update.ai_summary || caption || 'New save').toString().slice(0, 60);
+    const notifyCategory = categories?.find((cc: { id: string; name: string }) => cc.id === update.category_id)?.name ?? null;
+    await sendSavePush(item.user_id, notifyTitle, notifyCategory, saved_item_id);
+
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (e) {
     await supabase.from('saved_items').update({ processing_status: 'failed' }).eq('id', saved_item_id);

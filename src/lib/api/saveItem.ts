@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import { parseSharedUrl, extractUrl } from './platformUrl';
 import { assertCanSave } from '../subscription';
+import { track } from '../analytics';
 import type { SavedItem } from '../../types';
 
 export interface SharePayload {
@@ -49,6 +50,7 @@ export async function createSaveFromShare(
 
   if (error) throw error;
 
+  track('save_created', { platform: parsed.platform, source: 'share' });
   triggerProcessing(data.id);
   return data as SavedItem;
 }
@@ -97,6 +99,7 @@ export async function createSaveFromImage(base64: string, userId: string): Promi
 
   if (error) throw error;
 
+  track('save_created', { platform: 'manual', source: 'image' });
   triggerProcessing(data.id);
   return data as SavedItem;
 }
@@ -168,6 +171,13 @@ export async function archiveItem(itemId: string): Promise<void> {
     .eq('id', itemId);
 }
 
+export async function unarchiveItem(itemId: string): Promise<void> {
+  await supabase
+    .from('saved_items')
+    .update({ is_archived: false })
+    .eq('id', itemId);
+}
+
 export async function deleteItem(itemId: string): Promise<void> {
   await supabase.from('saved_items').delete().eq('id', itemId);
 }
@@ -191,4 +201,31 @@ export async function setPreferredView(itemId: string, view: 'clean' | 'original
     .from('saved_items')
     .update({ preferred_view: view })
     .eq('id', itemId);
+}
+
+/** Mark a save public (shows on the owner's profile + followers' feed) or private. */
+export async function setItemPublic(itemId: string, isPublic: boolean): Promise<void> {
+  await supabase
+    .from('saved_items')
+    .update({ is_public: isPublic })
+    .eq('id', itemId);
+}
+
+/**
+ * Voice dictation: upload a short recording to the private user-media bucket and
+ * get back a Whisper transcript (via the transcribe-audio Edge Function). The
+ * app drops the text into the manual-add field for the user to review + save.
+ */
+export async function transcribeAudio(uri: string, userId: string): Promise<string> {
+  const path = `${userId}/dictation/${Date.now()}.m4a`;
+  const resp = await fetch(uri);
+  const bytes = new Uint8Array(await resp.arrayBuffer());
+  const { error: upErr } = await supabase.storage
+    .from('user-media')
+    .upload(path, bytes, { contentType: 'audio/m4a', upsert: true });
+  if (upErr) throw upErr;
+
+  const { data, error } = await supabase.functions.invoke('transcribe-audio', { body: { path } });
+  if (error) throw error;
+  return (data?.text ?? '').toString();
 }

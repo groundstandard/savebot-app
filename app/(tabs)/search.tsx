@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../src/lib/supabase';
 import { useLibraryStore } from '../../src/store/library';
+import { track } from '../../src/lib/analytics';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
 import type { SavedItem } from '../../src/types';
@@ -44,6 +45,7 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
   const [recents, setRecents] = useState<string[]>([]);
+  const [smart, setSmart] = useState(false);
 
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
@@ -81,6 +83,27 @@ export default function SearchScreen() {
       return b;
     };
 
+    // Smart (semantic) search: embed the query server-side and match by meaning.
+    // Silently falls back to keyword search if unconfigured or it returns nothing.
+    if (smart && q.length >= 2) {
+      try {
+        const { data: sem } = await supabase.functions.invoke('semantic-search', { body: { query: q } });
+        let items = ((sem?.items as SavedItem[]) ?? []);
+        if (items.length > 0) {
+          if (typeFilter) items = items.filter((i) => i.content_classification === typeFilter);
+          if (platformFilter) items = items.filter((i) => i.source_platform === platformFilter);
+          if (categoryFilter) items = items.filter((i) => i.category_id === categoryFilter);
+          if (dateFilter !== 'all') {
+            const cutoff = Date.now() - (dateFilter === 'week' ? 7 : 30) * 86400000;
+            items = items.filter((i) => new Date(i.created_at).getTime() >= cutoff);
+          }
+          setResults(items);
+          setLoading(false);
+          return;
+        }
+      } catch { /* fall back to keyword search below */ }
+    }
+
     let data: SavedItem[] | null = null;
     if (q.length >= 2) {
       // Ranked full-text first; falls back to ILIKE if the fts column isn't
@@ -107,10 +130,10 @@ export default function SearchScreen() {
 
     setResults(data ?? []);
     setLoading(false);
-  }, [typeFilter, platformFilter, categoryFilter, dateFilter]);
+  }, [typeFilter, platformFilter, categoryFilter, dateFilter, smart]);
 
-  // Re-run whenever a filter changes.
-  useEffect(() => { runSearch(query); }, [typeFilter, platformFilter, categoryFilter, dateFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-run whenever a filter or the Smart toggle changes.
+  useEffect(() => { runSearch(query); }, [typeFilter, platformFilter, categoryFilter, dateFilter, smart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onChangeText(text: string) {
     setQuery(text);
@@ -121,6 +144,7 @@ export default function SearchScreen() {
   async function saveRecent(text: string) {
     const t = text.trim();
     if (t.length < 2) return;
+    track('search', { smart });
     const next = [t, ...recents.filter((r) => r.toLowerCase() !== t.toLowerCase())].slice(0, 8);
     setRecents(next);
     await AsyncStorage.setItem(RECENTS_KEY, JSON.stringify(next));
@@ -174,6 +198,15 @@ export default function SearchScreen() {
 
         {/* Filter chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity
+            style={[styles.smartChip, smart && styles.smartChipActive]}
+            onPress={() => setSmart((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="sparkles" size={13} color={smart ? '#fff' : c.primary} />
+            <Text style={[styles.smartChipText, smart && styles.chipTextActive]}>Smart</Text>
+          </TouchableOpacity>
+          <View style={styles.chipDivider} />
           {categories.length > 0 && (
             <>
               {categories.map((cat) => chip(cat.name, categoryFilter === cat.id, () => setCategoryFilter((p) => (p === cat.id ? null : cat.id)), `c-${cat.id}`))}
@@ -209,7 +242,7 @@ export default function SearchScreen() {
                   {item.ai_summary ?? item.raw_caption ?? '—'}
                 </Text>
                 <View style={styles.resultMeta}>
-                  <Text style={styles.resultCategory}>{item.category?.name ?? 'Uncategorized'}</Text>
+                  <Text style={styles.resultCategory}>{item.category?.name ?? categories.find((cc) => cc.id === item.category_id)?.name ?? 'Uncategorized'}</Text>
                   <Text style={styles.resultDot}>·</Text>
                   <Text style={styles.resultDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
                 </View>
@@ -292,6 +325,15 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   chipText: { fontSize: FONT_SIZE.xs, fontWeight: '600', color: c.textSecondary },
   chipTextActive: { color: '#fff' },
   chipDivider: { width: 1, height: 20, backgroundColor: c.border, marginHorizontal: SPACING.xs },
+
+  smartChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: SPACING.md, paddingVertical: 7,
+    borderRadius: BORDER_RADIUS.full, backgroundColor: c.primaryLight,
+    borderWidth: 1, borderColor: c.primary,
+  },
+  smartChipActive: { backgroundColor: c.primary, borderColor: c.primary },
+  smartChipText: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: c.primary },
 
   list: { paddingHorizontal: SPACING.md, paddingBottom: TAB_BAR_HEIGHT + 16, paddingTop: SPACING.sm },
 

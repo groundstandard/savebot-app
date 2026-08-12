@@ -20,7 +20,7 @@
         "resource": "image",
         "operation": "analyze",
         "modelId": { "__rl": true, "value": "gpt-4o-mini", "mode": "list", "cachedResultName": "gpt-4o-mini" },
-        "text": "Extract ALL visible text from this image verbatim. If there is no text, reply with an empty string. Return only the extracted text.",
+        "text": "Read any visible text in this image and return it. If there is little or no text, instead briefly describe what the image shows — the main subject, objects, food or drink, setting, and any notable details — in 1-2 sentences. Return only the text or the short description, nothing else.",
         "inputType": "url",
         "imageUrls": "={{ $json.body.image_url }}",
         "options": {}

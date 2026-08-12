@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Modal,
-  ActivityIndicator, Linking, Platform,
+  ActivityIndicator, Linking, Platform, Switch,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import {
   toggleFavorite, retryProcessing, archiveItem, deleteItem,
-  updateItemCategory, updateNotes, setPreferredView, updateTags, recordCategoryCorrection,
+  updateItemCategory, updateNotes, setPreferredView, updateTags, recordCategoryCorrection, setItemPublic,
 } from '../../src/lib/api/saveItem';
+import { shareSavedItem } from '../../src/lib/api/shareItem';
+import { exportItemPdf } from '../../src/lib/pdf';
 import { useLibraryStore } from '../../src/store/library';
 import { tapFeedback, warnFeedback } from '../../src/lib/haptics';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
@@ -44,6 +46,9 @@ export default function ItemDetailScreen() {
   const [related, setRelated] = useState<SavedItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [includeNotes, setIncludeNotes] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
 
   const {
     categories, subcategories, fetchCategories, fetchSubcategories,
@@ -60,6 +65,7 @@ export default function ItemDetailScreen() {
       const saved = data as SavedItem;
       setItem(saved);
       setFavorite(saved.is_favorite);
+      setIsPublic(saved.is_public);
       setNotes(saved.user_notes ?? '');
       setView(saved.preferred_view ?? 'clean');
       const thumb = saved.media?.find((m) => m.media_type === 'thumbnail') ?? saved.media?.[0];
@@ -95,6 +101,13 @@ export default function ItemDetailScreen() {
     setFavorite(next);
     updateItem(item.id, { is_favorite: next });
     await toggleFavorite(item.id, next);
+  }
+
+  async function handlePublicToggle(v: boolean) {
+    if (!item) return;
+    setIsPublic(v);
+    setItem({ ...item, is_public: v });
+    await setItemPublic(item.id, v);
   }
 
   async function handleRetry() {
@@ -164,6 +177,25 @@ export default function ItemDetailScreen() {
     router.back();
   }
 
+  function openShare() {
+    setIncludeNotes(notes.trim().length > 0);
+    setShareOpen(true);
+  }
+
+  async function doShare() {
+    if (!item) return;
+    setShareOpen(false);
+    tapFeedback();
+    await shareSavedItem(item, { includeNotes });
+  }
+
+  async function doExportPdf() {
+    if (!item) return;
+    setShareOpen(false);
+    tapFeedback();
+    try { await exportItemPdf(item, includeNotes); } catch { /* user canceled or export failed */ }
+  }
+
   async function handleDelete() {
     if (!item) return;
     warnFeedback();
@@ -193,6 +225,9 @@ export default function ItemDetailScreen() {
               <Ionicons name="open-outline" size={20} color={c.text} />
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={openShare} style={styles.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="share-social-outline" size={19} color={c.text} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleArchive} style={styles.iconBtn} activeOpacity={0.7}>
             <Ionicons name="archive-outline" size={19} color={c.text} />
           </TouchableOpacity>
@@ -289,6 +324,18 @@ export default function ItemDetailScreen() {
           />
         </View>
 
+        {/* Public toggle */}
+        <View style={styles.publicRow}>
+          <View style={styles.publicLeft}>
+            <Ionicons name="globe-outline" size={16} color={c.textSecondary} />
+            <View style={styles.publicTextWrap}>
+              <Text style={styles.metaSectionLabel}>Public</Text>
+              <Text style={styles.publicHint}>Show on your profile &amp; followers' feed</Text>
+            </View>
+          </View>
+          <Switch value={isPublic} onValueChange={handlePublicToggle} trackColor={{ true: c.primary, false: '#D1D5DB' }} thumbColor="#fff" />
+        </View>
+
         {/* Related */}
         {related.length > 0 && (
           <View style={styles.relatedSection}>
@@ -368,6 +415,34 @@ export default function ItemDetailScreen() {
         </TouchableOpacity>
       </Modal>
 
+      {/* Share options */}
+      <Modal visible={shareOpen} transparent animationType="slide" onRequestClose={() => setShareOpen(false)}>
+        <TouchableOpacity style={styles.sheetScrim} activeOpacity={1} onPress={() => setShareOpen(false)}>
+          <TouchableOpacity style={styles.sheet} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Share this save</Text>
+            <Text style={styles.shareHint}>Sends a clean summary card with a link back to the original post.</Text>
+            {notes.trim().length > 0 && (
+              <TouchableOpacity style={styles.shareToggleRow} activeOpacity={0.7} onPress={() => setIncludeNotes((v) => !v)}>
+                <View style={styles.metaSectionLeft}>
+                  <Ionicons name="create-outline" size={16} color={c.textSecondary} />
+                  <Text style={styles.sheetRowText}>Include my notes</Text>
+                </View>
+                <Ionicons name={includeNotes ? 'toggle' : 'toggle-outline'} size={30} color={includeNotes ? c.primary : c.textTertiary} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.shareBtn} onPress={doShare} activeOpacity={0.85}>
+              <Ionicons name="share-social" size={16} color="#fff" />
+              <Text style={styles.sheetDoneText}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.shareBtnAlt} onPress={doExportPdf} activeOpacity={0.85}>
+              <Ionicons name="document-text-outline" size={16} color={c.primary} />
+              <Text style={styles.shareBtnAltText}>Export as PDF</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <ConfirmModal
         visible={confirmDelete}
         danger
@@ -409,7 +484,9 @@ function CleanView({ item, onRetry }: { item: SavedItem; onRetry: () => void }) 
   }
 
   const confidence = (item.original_post_data as { ai_confidence?: number } | null)?.ai_confidence;
-  const lowConfidence = typeof confidence === 'number' && confidence < 0.6;
+  // Only flag genuinely weak analyses. Image/video posts without a strong caption
+  // sit around 0.4–0.5, which is still useful — don't nag on those.
+  const lowConfidence = typeof confidence === 'number' && confidence < 0.35;
 
   return (
     <View>
@@ -822,6 +899,15 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     minHeight: 40, textAlignVertical: 'top', paddingTop: 2,
   },
 
+  publicRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginTop: SPACING.sm, ...SHADOW.sm,
+  },
+  publicLeft: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
+  publicTextWrap: { flex: 1 },
+  publicHint: { fontSize: FONT_SIZE.xs, color: c.textTertiary, marginTop: 2 },
+
   tagsEditRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   tagEditable: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -875,6 +961,22 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
     padding: SPACING.md, alignItems: 'center', marginTop: SPACING.md,
   },
   sheetDoneText: { color: '#fff', fontSize: FONT_SIZE.md, fontWeight: '700' },
+
+  shareHint: { fontSize: FONT_SIZE.sm, color: c.textSecondary, lineHeight: 20, marginBottom: SPACING.md },
+  shareToggleRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: SPACING.sm, borderTopWidth: 1, borderTopColor: c.border,
+  },
+  shareBtn: {
+    flexDirection: 'row', gap: 8, backgroundColor: c.primary, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.md,
+  },
+  shareBtnAlt: {
+    flexDirection: 'row', gap: 8, backgroundColor: 'transparent', borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1.5, borderColor: c.primary,
+    padding: SPACING.md, alignItems: 'center', justifyContent: 'center', marginTop: SPACING.sm,
+  },
+  shareBtnAltText: { color: c.primary, fontSize: FONT_SIZE.md, fontWeight: '700' },
 
   cookModeButton: {
     position: 'absolute', bottom: 28, left: SPACING.md, right: SPACING.md,

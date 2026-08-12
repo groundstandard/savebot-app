@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { captureError } from '../lib/analytics';
 
 interface Props { children: ReactNode; fallback?: ReactNode }
 interface State { error: Error | null }
@@ -18,6 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error) {
     console.error('[ErrorBoundary]', error);
+    captureError(error);
   }
 
   render() {
