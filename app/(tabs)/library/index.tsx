@@ -143,7 +143,7 @@ export default function LibraryScreen() {
                 <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/manage-categories' as never)}>
                   <Ionicons name="settings-outline" size={20} color={c.text} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.notifBtn}>
+                <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/notifications' as never)}>
                   <Ionicons name="notifications-outline" size={22} color={c.text} />
                 </TouchableOpacity>
               </View>

@@ -24,7 +24,10 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   if (current.granted) return true;
   if (permissionAsked && !current.canAskAgain) return false;
   permissionAsked = true;
-  const req = await Notifications.requestPermissionsAsync();
+  // iOS needs the alert/badge/sound flags spelled out; Android ignores them.
+  const req = await Notifications.requestPermissionsAsync({
+    ios: { allowAlert: true, allowBadge: true, allowSound: true },
+  });
   return req.granted;
 }
 
