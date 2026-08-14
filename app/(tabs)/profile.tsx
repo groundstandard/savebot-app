@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Modal, ActivityIndicator, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ConfirmModal } from '../../src/components/ConfirmModal';
 import { useAuthStore } from '../../src/store/auth';
 import { useLibraryStore } from '../../src/store/library';
+import { exportItemsCsv, exportItemsMarkdown } from '../../src/lib/export';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, TAB_BAR_HEIGHT, type ColorScheme } from '../../src/constants';
 
@@ -42,11 +43,32 @@ export default function ProfileScreen() {
   const platforms = [...new Set(items.map(i => i.source_platform).filter(Boolean))].length;
 
   const [showSignOut, setShowSignOut] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function doSignOut() {
     setShowSignOut(false);
     await signOut();
     router.replace('/(auth)/login');
+  }
+
+  async function doExport(format: 'csv' | 'md') {
+    if (exporting) return;
+    if (items.length === 0) {
+      setShowExport(false);
+      Alert.alert('Nothing to export yet', 'Save a few things first, then you can export them here.');
+      return;
+    }
+    try {
+      setExporting(true);
+      if (format === 'csv') await exportItemsCsv(items);
+      else await exportItemsMarkdown(items);
+      setShowExport(false);
+    } catch {
+      Alert.alert('Export failed', 'Something went wrong while creating the file. Please try again.');
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -135,10 +157,53 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Your data</Text>
+        <View style={styles.sectionCard}>
+          <SettingsRow icon="download-outline" label="Export my saves" value={`${totalSaves}`} onPress={() => setShowExport(true)} />
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <View style={styles.sectionCard}>
           <SettingsRow icon="log-out-outline" label="Sign out" onPress={() => setShowSignOut(true)} danger />
         </View>
       </View>
+
+      <Modal visible={showExport} transparent animationType="fade" onRequestClose={() => { if (!exporting) setShowExport(false); }}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Export your saves</Text>
+            <Text style={styles.modalSub}>{totalSaves} item{totalSaves === 1 ? '' : 's'} · pick a format</Text>
+
+            <TouchableOpacity style={styles.exportOption} activeOpacity={0.8} disabled={exporting} onPress={() => doExport('csv')}>
+              <View style={styles.exportIcon}><Ionicons name="grid-outline" size={20} color={c.primary} /></View>
+              <View style={styles.exportText}>
+                <Text style={styles.exportOptTitle}>Spreadsheet (CSV)</Text>
+                <Text style={styles.exportOptSub}>Excel, Google Sheets, or a Notion database</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.exportOption} activeOpacity={0.8} disabled={exporting} onPress={() => doExport('md')}>
+              <View style={styles.exportIcon}><Ionicons name="document-text-outline" size={20} color={c.primary} /></View>
+              <View style={styles.exportText}>
+                <Text style={styles.exportOptTitle}>Notion / Docs (Markdown)</Text>
+                <Text style={styles.exportOptSub}>Import into Notion as pages, or open in any docs app</Text>
+              </View>
+            </TouchableOpacity>
+
+            {exporting ? (
+              <View style={styles.exportBusy}>
+                <ActivityIndicator color={c.primary} />
+                <Text style={styles.exportBusyText}>Preparing your file…</Text>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => setShowExport(false)}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <ConfirmModal
         visible={showSignOut}
@@ -234,4 +299,24 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   rowValue: { fontSize: FONT_SIZE.sm, color: c.textTertiary },
   divider: { height: 1, backgroundColor: c.border, marginLeft: 62 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', paddingHorizontal: SPACING.xl },
+  modalCard: { backgroundColor: c.white, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, ...SHADOW.md },
+  modalTitle: { fontSize: FONT_SIZE.lg, fontWeight: '800', color: c.text, textAlign: 'center' },
+  modalSub: { fontSize: FONT_SIZE.sm, color: c.textSecondary, textAlign: 'center', marginTop: 2, marginBottom: SPACING.md },
+  exportOption: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    padding: SPACING.md, borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1, borderColor: c.border, marginBottom: SPACING.sm,
+  },
+  exportIcon: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: c.primaryLight, alignItems: 'center', justifyContent: 'center',
+  },
+  exportText: { flex: 1 },
+  exportOptTitle: { fontSize: FONT_SIZE.md, fontWeight: '700', color: c.text },
+  exportOptSub: { fontSize: FONT_SIZE.xs, color: c.textSecondary, marginTop: 2 },
+  exportBusy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: SPACING.sm },
+  exportBusyText: { fontSize: FONT_SIZE.sm, color: c.textSecondary },
+  modalCancel: { fontSize: FONT_SIZE.md, fontWeight: '600', color: c.textSecondary, textAlign: 'center', paddingVertical: SPACING.sm },
 });
