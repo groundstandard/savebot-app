@@ -237,7 +237,7 @@ serve(async (req) => {
     // ACROSS the slides — reading only the cover loses most of it. We re-host each
     // (platform CDN URLs like Instagram fbcdn often can't be fetched by OpenAI's
     // image analyzer, but a Supabase signed URL can), then OCR every slide.
-    const MAX_SLIDES = 10; // bound cost + time for very long carousels
+    const MAX_SLIDES = 20; // IG carousels cap at 20; bounds cost + time on the rest
     const uploadedPath = opd.uploaded_image_path as string | undefined;
 
     /** Fetch a remote image, store it in the thumbnails bucket, return a signed URL. */
