@@ -21,7 +21,7 @@ function csvCell(value: unknown): string {
 }
 
 const CSV_COLUMNS = [
-  'Title', 'Type', 'Theme', 'Topic', 'People', 'Platform', 'Creator', 'URL', 'Summary', 'Tags', 'Notes', 'Favorite', 'Saved',
+  'Title', 'Type', 'Theme', 'Topic', 'People', 'Platform', 'Creator', 'URL', 'Summary', 'Tags', 'References', 'Notes', 'Favorite', 'Saved',
 ] as const;
 
 function csvRow(item: SavedItem): string {
@@ -36,6 +36,7 @@ function csvRow(item: SavedItem): string {
     item.source_url ?? '',
     item.ai_summary ?? '',
     (item.ai_tags ?? []).join('; '),
+    (item.reference_links ?? []).map((r) => r.url).join('; '),
     item.user_notes ?? '',
     item.is_favorite ? 'yes' : '',
     savedDate(item.created_at),
@@ -103,6 +104,9 @@ function mdItem(item: SavedItem): string {
     item.topic ? `**Topic:** ${item.topic}` : '',
     (item.people ?? []).length ? `**People:** ${item.people.join(', ')}` : '',
   ].filter(Boolean).join(' · ');
+  const refs = (item.reference_links ?? []).length
+    ? `**References**\n${item.reference_links.map((r) => `- [${r.title}](${r.url})`).join('\n')}`
+    : '';
   const parts = [
     `## ${shareTitle(item)}`,
     meta && `_${meta}_`,
@@ -110,6 +114,7 @@ function mdItem(item: SavedItem): string {
     item.ai_summary,
     mdSections(item),
     (item.ai_tags ?? []).length ? `**Tags:** ${item.ai_tags.map((t) => `#${t}`).join(' ')}` : '',
+    refs,
     item.user_notes?.trim() ? `**My notes:** ${item.user_notes.trim()}` : '',
     item.source_url ? `[Original post](${item.source_url})` : '',
   ];

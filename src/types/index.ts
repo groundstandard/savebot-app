@@ -63,6 +63,12 @@ export interface Subcategory {
   created_at: string;
 }
 
+export interface Reference {
+  title: string;
+  url: string;
+  source: string; // 'youtube' | 'link'
+}
+
 export interface SavedItemMedia {
   id: string;
   saved_item_id: string;
@@ -96,6 +102,8 @@ export interface SavedItem {
   people: string[];
   topic: string | null;
   moral_lesson: string | null;
+  // Links to fuller info: YouTube matches + links the post mentions.
+  reference_links: Reference[];
   user_notes: string | null;
   is_favorite: boolean;
   is_archived: boolean;

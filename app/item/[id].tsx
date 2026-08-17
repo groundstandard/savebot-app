@@ -306,6 +306,32 @@ export default function ItemDetailScreen() {
           </TouchableOpacity>
         )}
 
+        {/* References: fuller sources online + links the post mentions */}
+        {(item.reference_links?.length ?? 0) > 0 && (
+          <View style={styles.notesSection}>
+            <View style={styles.metaSectionLeft}>
+              <Ionicons name="link-outline" size={16} color={c.textSecondary} />
+              <Text style={styles.metaSectionLabel}>References</Text>
+            </View>
+            {item.reference_links.map((ref, i) => (
+              <TouchableOpacity
+                key={`${ref.url}-${i}`}
+                style={styles.refRow}
+                onPress={() => Linking.openURL(ref.url)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={(ref.source === 'youtube' ? 'logo-youtube' : 'globe-outline') as never}
+                  size={16}
+                  color={ref.source === 'youtube' ? '#FF0000' : c.primary}
+                />
+                <Text style={styles.refText} numberOfLines={2}>{ref.title}</Text>
+                <Ionicons name="open-outline" size={14} color={c.textTertiary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Tags (editable) */}
         <View style={styles.notesSection}>
           <View style={styles.metaSectionLeft}>
@@ -921,6 +947,9 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   },
   orgRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   orgValue: { flex: 1, fontSize: FONT_SIZE.sm, color: c.text, fontWeight: '500' },
+
+  refRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  refText: { flex: 1, fontSize: FONT_SIZE.sm, color: c.primary, fontWeight: '500' },
 
   notesSection: {
     backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,

@@ -159,6 +159,64 @@ async function fetchXContent(url: string): Promise<{ caption?: string; author?: 
   }
 }
 
+type Reference = { title: string; url: string; source: string };
+
+/**
+ * Search YouTube for fuller versions of the same content (Bobby: "if that full
+ * podcast is available on YouTube"). Real results via the Data API — never
+ * fabricated links. Best-effort: [] without a key/query or on any failure.
+ */
+async function youtubeSearch(query: string, max = 3): Promise<Reference[]> {
+  if (!YOUTUBE_API_KEY || !query.trim()) return [];
+  try {
+    const u = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=${max}&q=${encodeURIComponent(query)}&key=${YOUTUBE_API_KEY}`;
+    const res = await fetch(u);
+    if (!res.ok) return [];
+    const j = await res.json();
+    return (j.items ?? [])
+      .map((it: any) => ({
+        title: (it.snippet?.title ?? 'YouTube video').toString(),
+        url: it.id?.videoId ? `https://www.youtube.com/watch?v=${it.id.videoId}` : '',
+        source: 'youtube',
+      }))
+      .filter((r: Reference) => !!r.url);
+  } catch {
+    return [];
+  }
+}
+
+/** Pull any explicit links the post's caption mentions. */
+function extractLinks(text: string | null): Reference[] {
+  if (!text) return [];
+  const urls = text.match(/https?:\/\/[^\s)]+/g) ?? [];
+  return [...new Set(urls)].slice(0, 5).map((u) => ({
+    title: u.replace(/^https?:\/\//, '').slice(0, 60),
+    url: u,
+    source: 'link',
+  }));
+}
+
+/**
+ * Build the reference list: links the post mentions, plus fuller sources found
+ * on YouTube by searching the topic + main person. Deduped by URL, capped.
+ */
+async function buildReferences(
+  topic: string | null,
+  people: string[],
+  caption: string | null,
+  platform: string,
+): Promise<Reference[]> {
+  const refs: Reference[] = [...extractLinks(caption)];
+  // Skip the YouTube search when the item already IS a YouTube video.
+  if (platform !== 'youtube') {
+    const person = Array.isArray(people) && people[0] ? String(people[0]) : '';
+    const query = [person, topic].filter(Boolean).join(' ').trim() || (caption ?? '').slice(0, 80);
+    refs.push(...(await youtubeSearch(query, 3)));
+  }
+  const seen = new Set<string>();
+  return refs.filter((r) => r.url && !seen.has(r.url) && seen.add(r.url)).slice(0, 6);
+}
+
 /**
  * Send a "✓ Saved" push to every device the user has registered (push_tokens),
  * via the Expo Push API. Best-effort — a push failure never fails the save.
@@ -369,6 +427,8 @@ serve(async (req) => {
       update.people = Array.isArray(extracted.people) ? extracted.people.filter((p: unknown) => typeof p === 'string' && p.trim()).slice(0, 12) : [];
       update.topic = (typeof extracted.topic === 'string' && extracted.topic.trim()) ? extracted.topic.trim() : null;
       update.moral_lesson = (typeof extracted.moral_lesson === 'string' && extracted.moral_lesson.trim()) ? extracted.moral_lesson.trim() : null;
+      // External references: fuller sources online (real YouTube search) + links the post mentions.
+      update.reference_links = await buildReferences(update.topic, update.people, caption, item.source_platform);
       if (matchedCategory?.id) update.category_id = matchedCategory.id;
       // Keep the model's self-reported confidence so the UI can flag low-confidence saves.
       const conf = typeof extracted.confidence === 'number' ? extracted.confidence : null;
