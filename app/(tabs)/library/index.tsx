@@ -140,6 +140,9 @@ export default function LibraryScreen() {
                 <Text style={styles.title}>My Library</Text>
               </View>
               <View style={styles.headerBtns}>
+                <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/organize' as never)}>
+                  <Ionicons name="albums-outline" size={20} color={c.text} />
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/manage-categories' as never)}>
                   <Ionicons name="settings-outline" size={20} color={c.text} />
                 </TouchableOpacity>

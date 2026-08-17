@@ -365,6 +365,10 @@ serve(async (req) => {
       update.structured_data = extracted.structured_data ?? null;
       update.content_classification = extracted.content_type ?? null;
       update.ai_tags = extracted.tags ?? [];
+      // Organization axes (Bobby): famous people, topic, moral-lesson theme.
+      update.people = Array.isArray(extracted.people) ? extracted.people.filter((p: unknown) => typeof p === 'string' && p.trim()).slice(0, 12) : [];
+      update.topic = (typeof extracted.topic === 'string' && extracted.topic.trim()) ? extracted.topic.trim() : null;
+      update.moral_lesson = (typeof extracted.moral_lesson === 'string' && extracted.moral_lesson.trim()) ? extracted.moral_lesson.trim() : null;
       if (matchedCategory?.id) update.category_id = matchedCategory.id;
       // Keep the model's self-reported confidence so the UI can flag low-confidence saves.
       const conf = typeof extracted.confidence === 'number' ? extracted.confidence : null;
@@ -378,6 +382,8 @@ serve(async (req) => {
     // Embed the richest text we have so natural-language queries can find this item.
     const embedInput = [
       update.ai_summary,
+      update.topic,
+      Array.isArray(update.people) ? update.people.join(' ') : '',
       Array.isArray(update.ai_tags) ? update.ai_tags.join(' ') : '',
       caption,
       assembled,
@@ -433,8 +439,16 @@ Analyze this content and return a JSON object:
   "category": "Best matching category name from the user's list",
   "subcategory": "Best matching subcategory",
   "tags": ["tag1", "tag2", "tag3"],
+  "people": ["Notable/famous people the content is ABOUT or quotes — real names only, [] if none"],
+  "topic": "The single main topic in a few words (e.g. 'Heraclitus' philosophical paradoxes')",
+  "moral_lesson": "EXACTLY ONE label from the Moral-lesson themes list below",
   "structured_data": { ...type-specific extraction... }
 }
+
+Moral-lesson themes (pick the ONE that best fits; this list is exhaustive — use "Other" only if truly nothing fits):
+Business & Money, Career & Work, Mindset & Discipline, Productivity & Habits, Leadership, Personal Growth, Spiritual Growth, Philosophy & Wisdom, Relationships & Love, Health & Fitness, Mental & Emotional Wellbeing, Creativity, Learning & Education, Society & Culture, Other
+
+For "people": include only real, named individuals the content is genuinely about or quotes (e.g. authors, historical figures, public figures). Do NOT include the poster/creator unless the content is about them. [] if none are named.
 
 Platform: ${platform}
 URL: ${url ?? 'none'}

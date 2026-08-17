@@ -18,6 +18,7 @@ import { ConfirmModal } from '../../src/components/ConfirmModal';
 import { EmbedPlayer } from '../../src/components/item/EmbedPlayer';
 import { useColors } from '../../src/hooks/useColors';
 import { SPACING, FONT_SIZE, BORDER_RADIUS, SHADOW, type ColorScheme } from '../../src/constants';
+import { moralLessonIcon } from '../../src/constants/organization';
 import type {
   SavedItem, SavedItemMedia, RecipeData, WorkoutData, TravelData, ProductData, GenericData,
 } from '../../src/types';
@@ -280,6 +281,30 @@ export default function ItemDetailScreen() {
             <Ionicons name="chevron-forward" size={16} color={c.textTertiary} />
           </View>
         </TouchableOpacity>
+
+        {/* Organization: theme, topic, people (tap to browse) */}
+        {(item.moral_lesson || item.topic || (item.people?.length ?? 0) > 0) && (
+          <TouchableOpacity style={styles.orgSection} onPress={() => router.push('/organize')} activeOpacity={0.85}>
+            {!!item.moral_lesson && (
+              <View style={styles.orgRow}>
+                <Ionicons name={moralLessonIcon(item.moral_lesson) as never} size={15} color={c.primary} />
+                <Text style={styles.orgValue}>{item.moral_lesson}</Text>
+              </View>
+            )}
+            {!!item.topic && (
+              <View style={styles.orgRow}>
+                <Ionicons name="pricetag-outline" size={15} color={c.textSecondary} />
+                <Text style={styles.orgValue} numberOfLines={2}>{item.topic}</Text>
+              </View>
+            )}
+            {(item.people?.length ?? 0) > 0 && (
+              <View style={styles.orgRow}>
+                <Ionicons name="people-outline" size={15} color={c.textSecondary} />
+                <Text style={styles.orgValue} numberOfLines={2}>{item.people.join(', ')}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Tags (editable) */}
         <View style={styles.notesSection}>
@@ -889,6 +914,13 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   metaSectionLabel: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: c.textSecondary },
   metaSectionRight: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
   metaSectionValue: { fontSize: FONT_SIZE.sm, color: c.text, fontWeight: '600', textAlign: 'right' },
+
+  orgSection: {
+    backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginTop: SPACING.sm, gap: 8, ...SHADOW.sm,
+  },
+  orgRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  orgValue: { flex: 1, fontSize: FONT_SIZE.sm, color: c.text, fontWeight: '500' },
 
   notesSection: {
     backgroundColor: c.white, borderRadius: BORDER_RADIUS.md,

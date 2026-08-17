@@ -21,13 +21,16 @@ function csvCell(value: unknown): string {
 }
 
 const CSV_COLUMNS = [
-  'Title', 'Type', 'Platform', 'Creator', 'URL', 'Summary', 'Tags', 'Notes', 'Favorite', 'Saved',
+  'Title', 'Type', 'Theme', 'Topic', 'People', 'Platform', 'Creator', 'URL', 'Summary', 'Tags', 'Notes', 'Favorite', 'Saved',
 ] as const;
 
 function csvRow(item: SavedItem): string {
   return [
     shareTitle(item),
     item.content_classification ?? '',
+    item.moral_lesson ?? '',
+    item.topic ?? '',
+    (item.people ?? []).join('; '),
     item.source_platform ?? '',
     item.source_creator_handle ? `@${item.source_creator_handle}` : '',
     item.source_url ?? '',
@@ -95,9 +98,15 @@ function mdSections(item: SavedItem): string {
 
 function mdItem(item: SavedItem): string {
   const meta = [item.source_platform, item.content_classification, savedDate(item.created_at)].filter(Boolean).join(' · ');
+  const org = [
+    item.moral_lesson ? `**Theme:** ${item.moral_lesson}` : '',
+    item.topic ? `**Topic:** ${item.topic}` : '',
+    (item.people ?? []).length ? `**People:** ${item.people.join(', ')}` : '',
+  ].filter(Boolean).join(' · ');
   const parts = [
     `## ${shareTitle(item)}`,
     meta && `_${meta}_`,
+    org,
     item.ai_summary,
     mdSections(item),
     (item.ai_tags ?? []).length ? `**Tags:** ${item.ai_tags.map((t) => `#${t}`).join(' ')}` : '',

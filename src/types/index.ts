@@ -91,6 +91,11 @@ export interface SavedItem {
   category_id: string | null;
   subcategory_id: string | null;
   ai_tags: string[];
+  // Organization axes (orthogonal to category): famous people the content is
+  // about, the main topic, and a moral-lesson theme (see MORAL_LESSONS).
+  people: string[];
+  topic: string | null;
+  moral_lesson: string | null;
   user_notes: string | null;
   is_favorite: boolean;
   is_archived: boolean;

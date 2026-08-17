@@ -159,6 +159,8 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Your data</Text>
         <View style={styles.sectionCard}>
+          <SettingsRow icon="albums-outline" label="Organize library" onPress={() => router.push('/organize')} />
+          <View style={styles.divider} />
           <SettingsRow icon="download-outline" label="Export my saves" value={`${totalSaves}`} onPress={() => setShowExport(true)} />
         </View>
       </View>
