@@ -59,13 +59,31 @@ async function embedText(text: string): Promise<number[] | null> {
 }
 
 /**
+ * Collect every image URL a scraper might return for a post — a carousel/slides
+ * post has many, and different scrapers name the array differently. Deduped, in
+ * order, so we can OCR each slide instead of only the first.
+ */
+function collectImageUrls(j: any): string[] {
+  const urls: string[] = [];
+  const push = (u: any) => { if (typeof u === 'string' && u.startsWith('http')) urls.push(u); };
+  if (Array.isArray(j.images)) j.images.forEach((x: any) => push(typeof x === 'string' ? x : x?.url || x?.displayUrl));
+  if (Array.isArray(j.displayUrls)) j.displayUrls.forEach(push);
+  if (Array.isArray(j.childPosts)) j.childPosts.forEach((c: any) => push(c?.displayUrl || c?.thumbnail_url || c?.url));
+  if (Array.isArray(j.sidecarItems)) j.sidecarItems.forEach((c: any) => push(c?.displayUrl || c?.url));
+  if (Array.isArray(j.carousel_media)) j.carousel_media.forEach((c: any) => push(c?.image_url || c?.displayUrl || c?.url));
+  push(j.thumbnail_url || j.thumbnailUrl || j.displayUrl); // single-image fallback / cover
+  return [...new Set(urls)];
+}
+
+/**
  * Instagram / Facebook post content via the n8n workflow (which calls a scraper
- * such as Apify). Sends { url }, expects { caption, author, thumbnail_url }.
- * Returns {} on any failure so processing degrades gracefully; never throws.
+ * such as Apify). Sends { url }, expects { caption, author, thumbnail_url } and,
+ * for a carousel, an array of slide image URLs. Returns {} on any failure so
+ * processing degrades gracefully; never throws.
  */
 async function fetchInstagramContent(
   url: string
-): Promise<{ caption?: string; author?: string; thumbnailUrl?: string; videoUrl?: string }> {
+): Promise<{ caption?: string; author?: string; thumbnailUrl?: string; videoUrl?: string; images?: string[] }> {
   if (!N8N_INSTAGRAM_WEBHOOK_URL || !url) return {};
   try {
     const res = await fetch(N8N_INSTAGRAM_WEBHOOK_URL, {
@@ -82,6 +100,7 @@ async function fetchInstagramContent(
       author: j.author || j.owner || j.ownerUsername || undefined,
       thumbnailUrl: j.thumbnail_url || j.thumbnailUrl || j.displayUrl || undefined,
       videoUrl: j.video_url || j.videoUrl || undefined,
+      images: collectImageUrls(j),
     };
   } catch {
     return {};
@@ -213,63 +232,62 @@ serve(async (req) => {
     let xc: { caption?: string; author?: string } = {};
     if (item.source_platform === 'x' && item.source_url) xc = await fetchXContent(item.source_url);
 
-    // ── 2. Media: download the thumbnail → private bucket → saved_item_media. Best effort.
-    // We re-host the thumbnail on Supabase because platform CDN URLs (e.g. Instagram
-    // fbcdn) often can't be fetched by OpenAI's image analyzer — a Supabase signed
-    // URL can, so OCR/vision works on the re-hosted copy instead of the raw CDN link.
-    const thumbUrl = oembed.thumbnail_url ?? ig.thumbnailUrl ?? tt.thumbnailUrl ?? null;
-    let storedThumbUrl: string | null = null;
-    if (thumbUrl) {
+    // ── 2 + 3. Media + OCR. Re-host every image on Supabase and OCR each one.
+    // A carousel/slides post has many images and its whole point is usually text
+    // ACROSS the slides — reading only the cover loses most of it. We re-host each
+    // (platform CDN URLs like Instagram fbcdn often can't be fetched by OpenAI's
+    // image analyzer, but a Supabase signed URL can), then OCR every slide.
+    const MAX_SLIDES = 10; // bound cost + time for very long carousels
+    const uploadedPath = opd.uploaded_image_path as string | undefined;
+
+    /** Fetch a remote image, store it in the thumbnails bucket, return a signed URL. */
+    async function rehost(srcUrl: string, idx: number): Promise<string | null> {
       try {
-        const img = await fetch(thumbUrl);
-        if (img.ok) {
-          const bytes = new Uint8Array(await img.arrayBuffer());
-          const path = `${item.user_id}/${saved_item_id}/thumb.jpg`;
-          const { error: upErr } = await supabase.storage
-            .from(THUMB_BUCKET)
-            .upload(path, bytes, { contentType: 'image/jpeg', upsert: true });
-          if (!upErr) {
-            const { data: signed } = await supabase.storage.from(THUMB_BUCKET).createSignedUrl(path, 600);
-            storedThumbUrl = signed?.signedUrl ?? null;
-            // Replace any prior thumbnail row (safe on retry — no unique constraint needed).
-            await supabase.from('saved_item_media')
-              .delete().eq('saved_item_id', saved_item_id).eq('media_type', 'thumbnail');
-            await supabase.from('saved_item_media').insert({
-              saved_item_id,
-              media_type: 'thumbnail',
-              storage_path: `${THUMB_BUCKET}/${path}`,
-              sort_order: 0,
-            });
-          }
-        }
-      } catch (_e) { /* thumbnail is optional */ }
+        const img = await fetch(srcUrl);
+        if (!img.ok) return null;
+        const bytes = new Uint8Array(await img.arrayBuffer());
+        const path = `${item.user_id}/${saved_item_id}/img_${idx}.jpg`;
+        const { error } = await supabase.storage
+          .from(THUMB_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: true });
+        if (error) return null;
+        const { data: signed } = await supabase.storage.from(THUMB_BUCKET).createSignedUrl(path, 600);
+        return signed?.signedUrl ?? null;
+      } catch { return null; }
     }
 
-    // ── 3. OCR + transcription — both delegated to n8n. Best-effort.
-    // A user-uploaded image (manual Add → Image) takes priority over the oembed
-    // thumbnail. It lives in the PRIVATE user-media bucket, so OCR (OpenAI Vision
-    // via n8n) gets a short-lived signed URL, and we record it as the item's media.
-    let uploadedImageUrl: string | null = null;
-    if (opd.uploaded_image_path) {
-      const { data: signed } = await supabase.storage
-        .from('user-media')
-        .createSignedUrl(opd.uploaded_image_path as string, 600);
-      uploadedImageUrl = signed?.signedUrl ?? null;
-      if (uploadedImageUrl) {
-        await supabase.from('saved_item_media')
-          .delete().eq('saved_item_id', saved_item_id).eq('media_type', 'thumbnail');
-        await supabase.from('saved_item_media').insert({
-          saved_item_id,
-          media_type: 'thumbnail',
-          storage_path: `user-media/${opd.uploaded_image_path}`,
-          sort_order: 0,
-        });
-      }
+    // Signed image URLs to OCR, in slide order. A manual upload (Add → Image) is
+    // already in the private user-media bucket, so we just sign it.
+    let signedSlides: string[] = [];
+    let thumbStoragePath: string | null = null;
+    if (uploadedPath) {
+      const { data: signed } = await supabase.storage.from('user-media').createSignedUrl(uploadedPath, 600);
+      if (signed?.signedUrl) { signedSlides = [signed.signedUrl]; thumbStoragePath = `user-media/${uploadedPath}`; }
+    } else {
+      const igImages = Array.isArray(ig.images) ? ig.images : [];
+      const cover = [oembed.thumbnail_url, ig.thumbnailUrl, tt.thumbnailUrl].find(Boolean) as string | undefined;
+      const sources = (igImages.length ? igImages : cover ? [cover] : []).slice(0, MAX_SLIDES);
+      const rehosted = await Promise.all(sources.map((u, i) => rehost(u, i)));
+      signedSlides = rehosted.filter((x): x is string => !!x);
+      if (signedSlides.length) thumbStoragePath = `${THUMB_BUCKET}/${item.user_id}/${saved_item_id}/img_0.jpg`;
     }
-    const ocrTarget = uploadedImageUrl ?? storedThumbUrl ?? oembed.thumbnail_url ?? ig.thumbnailUrl ?? tt.thumbnailUrl;
-    const ocrText = ocrTarget
-      ? await n8nText(N8N_OCR_WEBHOOK_URL, { image_url: ocrTarget })
-      : '';
+
+    // Record the first image as the card thumbnail (replace any prior row; safe on retry).
+    if (thumbStoragePath) {
+      await supabase.from('saved_item_media')
+        .delete().eq('saved_item_id', saved_item_id).eq('media_type', 'thumbnail');
+      await supabase.from('saved_item_media').insert({
+        saved_item_id, media_type: 'thumbnail', storage_path: thumbStoragePath, sort_order: 0,
+      });
+    }
+
+    // OCR every slide (parallel) and label them so the AI can organize across slides.
+    const ocrResults = await Promise.all(
+      signedSlides.map((u) => n8nText(N8N_OCR_WEBHOOK_URL, { image_url: u })),
+    );
+    const ocrText = ocrResults
+      .map((t, i) => (t ? (signedSlides.length > 1 ? `Slide ${i + 1}: ${t}` : t) : ''))
+      .filter(Boolean)
+      .join('\n\n');
     // Video isn't downloaded yet (only a thumbnail is stored), so this stays
     // empty until the media pipeline provides a video/audio URL.
     // Video/audio for transcription: the IG/FB scraper returns a video URL for
@@ -298,7 +316,7 @@ serve(async (req) => {
       caption,
       yt.description ? `Description:\n${yt.description}` : '',
       (yt.transcript || transcript) ? `Transcript:\n${yt.transcript || transcript}` : '',
-      ocrText ? `Image (visible text or description):\n${ocrText}` : '',
+      ocrText ? `On-screen text from the post's image(s)/slides:\n${ocrText}` : '',
     ].filter(Boolean).join('\n\n');
 
     const update: Record<string, any> = {
@@ -393,12 +411,17 @@ function buildExtractionPrompt({ caption, url, platform, userPrefs, categories }
 
   return `You are a content analysis engine for SaveBot — an AI-powered personal knowledge library.
 
-CRITICAL — accuracy over completeness. This is the most important rule:
-- Use ONLY facts that are explicitly present in the content provided below (title, description, transcript, on-screen text).
-- NEVER invent, guess, or infer specifics. Do NOT fabricate tips, steps, ingredients, numbers, or any list items just to fill the schema. Making up plausible-sounding content is a failure.
-- If the actual details are not in the content, return an EMPTY list ([]) for them and write only a short, honest, general summary of what the content appears to be about. An empty list is correct; an invented list is wrong.
-- Set "confidence" from how much real detail you actually had: only a title / thin description and no transcript → 0.2 or lower.
-- Never copy the placeholder text from the schema. If there is genuinely no usable content, write a brief honest summary such as "Not enough detail was available to analyze this item." and leave all lists empty.
+RULE 1 — accuracy. Do not invent:
+- Use ONLY facts explicitly present in the content provided below (caption, description, transcript, on-screen slide text).
+- NEVER guess or infer specifics that aren't there. Do NOT fabricate tips, steps, ingredients, numbers, or list items just to fill the schema. Making up plausible-sounding content is a failure.
+- If a detail isn't in the content, leave that field null or that list []. An empty list is correct; an invented list is wrong.
+- If there is genuinely no usable content at all, write a brief honest summary such as "Not enough detail was available to analyze this item." and leave all lists empty. Never copy the schema's placeholder text.
+
+RULE 2 — completeness. When content IS present, capture ALL of it and organize it:
+- The source may include MANY slides (labeled "Slide 1", "Slide 2", …) and/or a full transcript. Read EVERY slide and the whole transcript — not just the first.
+- Turn each distinct point, step, name, date, definition, quote, or claim the post actually makes into its own list item. Do NOT collapse a rich, detailed post into one vague sentence.
+- "summary" should convey the full substance of the post, and key_points / structured lists should reflect its full breadth — everything it genuinely says, in order.
+- Set "confidence" from how much real content you had: a full multi-slide/transcript post you captured well → 0.8+; only a thin title and no body → 0.2 or lower.
 
 Analyze this content and return a JSON object:
 
@@ -406,7 +429,7 @@ Analyze this content and return a JSON object:
   "content_type": "recipe|workout|travel|product|education|advice|entertainment|other",
   "confidence": 0.0-1.0,
   "title": "Brief descriptive title",
-  "summary": "1-2 sentence summary of the content",
+  "summary": "2-4 sentences conveying the full substance of the content (more if it is genuinely rich)",
   "category": "Best matching category name from the user's list",
   "subcategory": "Best matching subcategory",
   "tags": ["tag1", "tag2", "tag3"],

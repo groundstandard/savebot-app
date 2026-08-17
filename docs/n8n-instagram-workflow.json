@@ -12,7 +12,10 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [240, 300],
+      "position": [
+        240,
+        300
+      ],
       "webhookId": "savebot-instagram"
     },
     {
@@ -22,7 +25,10 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "token", "value": "PASTE_YOUR_APIFY_TOKEN_HERE" }
+            {
+              "name": "token",
+              "value": "PASTE_YOUR_APIFY_TOKEN_HERE"
+            }
           ]
         },
         "sendBody": true,
@@ -34,17 +40,23 @@
       "name": "Apify Instagram",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300]
+      "position": [
+        480,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Apify returns the scraped post(s). Handle both shapes (array in one item,\n// or split into items) and map to the contract SaveBot expects.\nconst first = $input.first().json;\nconst post = Array.isArray(first) ? (first[0] || {}) : first;\nreturn [{ json: {\n  caption: post.caption || \"\",\n  author: post.ownerFullName || post.ownerUsername || \"\",\n  thumbnail_url: post.displayUrl || (Array.isArray(post.images) ? post.images[0] : \"\") || \"\",\n  video_url: post.videoUrl || post.videoUrlHd || \"\"\n} }];"
+        "jsCode": "// Apify returns the scraped post(s). Handle both shapes (array in one item,\n// or split into items) and map to the contract SaveBot expects.\nconst first = $input.first().json;\nconst post = Array.isArray(first) ? (first[0] || {}) : first;\n\n// Collect EVERY slide image — a carousel/sidecar post has many, and its text\n// usually spans all of them, so SaveBot OCRs each one.\nconst images = [];\nconst push = (u) => { if (typeof u === \"string\" && u.startsWith(\"http\")) images.push(u); };\nif (Array.isArray(post.images)) post.images.forEach(push);\nif (Array.isArray(post.childPosts)) post.childPosts.forEach((c) => push(c.displayUrl));\npush(post.displayUrl);\nconst uniqueImages = [...new Set(images)];\n\nreturn [{ json: {\n  caption: post.caption || \"\",\n  author: post.ownerFullName || post.ownerUsername || \"\",\n  thumbnail_url: post.displayUrl || uniqueImages[0] || \"\",\n  video_url: post.videoUrl || post.videoUrlHd || \"\",\n  images: uniqueImages\n} }];"
       },
       "id": "b1a1e001-0001-4001-8001-000000000003",
       "name": "Map fields",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 300]
+      "position": [
+        720,
+        300
+      ]
     },
     {
       "parameters": {
@@ -56,13 +68,46 @@
       "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [960, 300]
+      "position": [
+        960,
+        300
+      ]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Apify Instagram", "type": "main", "index": 0 }]] },
-    "Apify Instagram": { "main": [[{ "node": "Map fields", "type": "main", "index": 0 }]] },
-    "Map fields": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Apify Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify Instagram": {
+      "main": [
+        [
+          {
+            "node": "Map fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map fields": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "settings": {},
   "active": false
