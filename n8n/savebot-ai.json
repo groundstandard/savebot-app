@@ -33,13 +33,13 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "value": "gpt-4o",
+          "value": "gpt-4.1",
           "mode": "list",
-          "cachedResultName": "gpt-4o"
+          "cachedResultName": "gpt-4.1"
         },
         "options": {
           "temperature": 0,
-          "maxTokens": 2048
+          "maxTokens": 4096
         }
       },
       "id": "openai-chat",
