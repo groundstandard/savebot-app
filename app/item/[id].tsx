@@ -311,24 +311,28 @@ export default function ItemDetailScreen() {
           <View style={styles.notesSection}>
             <View style={styles.metaSectionLeft}>
               <Ionicons name="link-outline" size={16} color={c.textSecondary} />
-              <Text style={styles.metaSectionLabel}>References</Text>
+              <Text style={styles.metaSectionLabel}>Sources</Text>
             </View>
-            {item.reference_links.map((ref, i) => (
-              <TouchableOpacity
-                key={`${ref.url}-${i}`}
-                style={styles.refRow}
-                onPress={() => Linking.openURL(ref.url)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={(ref.source === 'youtube' ? 'logo-youtube' : 'globe-outline') as never}
-                  size={16}
-                  color={ref.source === 'youtube' ? '#FF0000' : c.primary}
-                />
-                <Text style={styles.refText} numberOfLines={2}>{ref.title}</Text>
-                <Ionicons name="open-outline" size={14} color={c.textTertiary} />
-              </TouchableOpacity>
-            ))}
+            {item.reference_links.map((ref, i) => {
+              const icon =
+                ref.source === 'youtube' ? 'logo-youtube'
+                : ref.source === 'wikipedia' ? 'book-outline'
+                : 'globe-outline';
+              const iconColor = ref.source === 'youtube' ? '#FF0000' : c.primary;
+              return (
+                <TouchableOpacity
+                  key={`${ref.url}-${i}`}
+                  style={styles.refRow}
+                  onPress={() => Linking.openURL(ref.url)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.refNum}>{i + 1}</Text>
+                  <Ionicons name={icon as never} size={16} color={iconColor} />
+                  <Text style={styles.refText} numberOfLines={2}>{ref.title}</Text>
+                  <Ionicons name="open-outline" size={14} color={c.textTertiary} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -549,13 +553,26 @@ function CleanView({ item, onRetry }: { item: SavedItem; onRetry: () => void }) 
       )}
       {item.ai_summary && <Text style={styles.summary}>{item.ai_summary}</Text>}
 
+      {!!item.ai_details && (
+        <View style={styles.detailsSection}>
+          <SectionHeader icon="document-text-outline" title="Details" />
+          {item.ai_details
+            .split(/\n{2,}/)
+            .map((para) => para.trim())
+            .filter(Boolean)
+            .map((para, i) => (
+              <Text key={i} style={styles.detailsParagraph}>{para}</Text>
+            ))}
+        </View>
+      )}
+
       {data?.type === 'recipe' && <RecipeView data={data as RecipeData} />}
       {data?.type === 'workout' && <WorkoutView data={data as WorkoutData} />}
       {data?.type === 'travel' && <TravelView data={data as TravelData} />}
       {data?.type === 'product' && <ProductView data={data as ProductData} />}
       {data?.type === 'generic' && <GenericView data={data as GenericData} />}
 
-      {!data && !item.ai_summary && (
+      {!data && !item.ai_summary && !item.ai_details && (
         <View style={styles.stateCard}>
           <Ionicons name="document-text-outline" size={32} color={c.textTertiary} />
           <Text style={styles.stateText}>No structured details extracted for this item.</Text>
@@ -864,6 +881,9 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   },
   summary: { fontSize: FONT_SIZE.md, color: c.text, lineHeight: 24, marginBottom: SPACING.md },
 
+  detailsSection: { marginBottom: SPACING.sm },
+  detailsParagraph: { fontSize: FONT_SIZE.sm, color: c.text, lineHeight: 23, marginBottom: SPACING.sm },
+
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: SPACING.md },
   tag: { backgroundColor: c.primaryLight, borderRadius: BORDER_RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
   tagText: { fontSize: FONT_SIZE.xs, color: c.primary, fontWeight: '700' },
@@ -949,6 +969,11 @@ const makeStyles = (c: ColorScheme) => StyleSheet.create({
   orgValue: { flex: 1, fontSize: FONT_SIZE.sm, color: c.text, fontWeight: '500' },
 
   refRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  refNum: {
+    width: 18, height: 18, borderRadius: 9, backgroundColor: c.surfaceAlt,
+    textAlign: 'center', lineHeight: 18, fontSize: 11, fontWeight: '700',
+    color: c.textSecondary, overflow: 'hidden',
+  },
   refText: { flex: 1, fontSize: FONT_SIZE.sm, color: c.primary, fontWeight: '500' },
 
   notesSection: {

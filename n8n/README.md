@@ -58,7 +58,9 @@ Creates **SaveBot — AI Extraction** (Webhook → LLM Agent → OpenAI → Buil
 
 Open the **OpenAI Chat Model** node → pick your OpenAI credential (the same
 "OpenAi account" the Answer Engine uses is fine — this is only the model provider,
-the workflows stay separate). Model defaults to `gpt-4o-mini`.
+the workflows stay separate). Model is `gpt-4o` (upgraded from `gpt-4o-mini`
+2026-08-26 for fuller, more detailed post write-ups; `maxTokens` 2048 so the
+longer "details" field isn't truncated).
 
 ## 3. Activate + copy the webhook URL
 

@@ -66,7 +66,7 @@ export interface Subcategory {
 export interface Reference {
   title: string;
   url: string;
-  source: string; // 'youtube' | 'link'
+  source: string; // 'youtube' | 'wikipedia' | 'link'
 }
 
 export interface SavedItemMedia {
@@ -92,6 +92,8 @@ export interface SavedItem {
   raw_hashtags: string[];
   original_post_data: Record<string, unknown> | null;
   ai_summary: string | null;
+  // In-depth, multi-paragraph write-up of the post (deeper than ai_summary).
+  ai_details: string | null;
   structured_data: StructuredData | null;
   content_classification: ContentClassification | null;
   category_id: string | null;
@@ -102,7 +104,8 @@ export interface SavedItem {
   people: string[];
   topic: string | null;
   moral_lesson: string | null;
-  // Links to fuller info: YouTube matches + links the post mentions.
+  // Cited sources SaveBot explored: Wikipedia (people/topic) + fuller YouTube
+  // matches + links the post mentions.
   reference_links: Reference[];
   user_notes: string | null;
   is_favorite: boolean;

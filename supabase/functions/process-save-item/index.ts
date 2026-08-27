@@ -185,6 +185,32 @@ async function youtubeSearch(query: string, max = 3): Promise<Reference[]> {
   }
 }
 
+/**
+ * Look up a person/topic on Wikipedia (free REST API, no key) and return a
+ * citable reference — the canonical article title + URL. Best-effort: null on a
+ * miss, a disambiguation page, or any failure. Real articles only; the URL comes
+ * straight from Wikipedia's response, so citations are never fabricated.
+ */
+async function wikipediaLookup(term: string): Promise<Reference | null> {
+  const q = (term ?? '').trim();
+  if (!q) return null;
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}?redirect=true`,
+      { headers: { 'User-Agent': 'SaveBot/1.0 (personal knowledge library)' } },
+    );
+    if (!res.ok) return null;
+    const j = await res.json();
+    // A disambiguation page isn't a single citable source — skip it.
+    if (j.type === 'disambiguation' || !j.title) return null;
+    const url = j.content_urls?.desktop?.page ?? j.content_urls?.mobile?.page;
+    if (!url) return null;
+    return { title: `Wikipedia — ${j.title}`, url, source: 'wikipedia' };
+  } catch {
+    return null;
+  }
+}
+
 /** Pull any explicit links the post's caption mentions. */
 function extractLinks(text: string | null): Reference[] {
   if (!text) return [];
@@ -207,14 +233,25 @@ async function buildReferences(
   platform: string,
 ): Promise<Reference[]> {
   const refs: Reference[] = [...extractLinks(caption)];
-  // Skip the YouTube search when the item already IS a YouTube video.
+
+  // Explore authoritative sources to cite (Bobby, 2026-08-26): look up the named
+  // people and the main topic on Wikipedia. Real, citable articles — never made up.
+  const wikiTerms = [
+    ...(Array.isArray(people) ? people.slice(0, 2).map(String) : []),
+    topic ?? '',
+  ].map((t) => t.trim()).filter(Boolean);
+  const wiki = await Promise.all([...new Set(wikiTerms)].map((t) => wikipediaLookup(t)));
+  refs.push(...wiki.filter((r): r is Reference => !!r));
+
+  // Fuller versions of the same content on YouTube — skipped when the item IS a
+  // YouTube video already.
   if (platform !== 'youtube') {
     const person = Array.isArray(people) && people[0] ? String(people[0]) : '';
     const query = [person, topic].filter(Boolean).join(' ').trim() || (caption ?? '').slice(0, 80);
     refs.push(...(await youtubeSearch(query, 3)));
   }
   const seen = new Set<string>();
-  return refs.filter((r) => r.url && !seen.has(r.url) && seen.add(r.url)).slice(0, 6);
+  return refs.filter((r) => r.url && !seen.has(r.url) && seen.add(r.url)).slice(0, 8);
 }
 
 /**
@@ -420,6 +457,8 @@ serve(async (req) => {
       );
 
       update.ai_summary = extracted.summary ?? null;
+      // In-depth write-up (Bobby: "write more details about the post", 2026-08-26).
+      update.ai_details = (typeof extracted.details === 'string' && extracted.details.trim()) ? extracted.details.trim() : null;
       update.structured_data = extracted.structured_data ?? null;
       update.content_classification = extracted.content_type ?? null;
       update.ai_tags = extracted.tags ?? [];
@@ -442,6 +481,7 @@ serve(async (req) => {
     // Embed the richest text we have so natural-language queries can find this item.
     const embedInput = [
       update.ai_summary,
+      update.ai_details,
       update.topic,
       Array.isArray(update.people) ? update.people.join(' ') : '',
       Array.isArray(update.ai_tags) ? update.ai_tags.join(' ') : '',
@@ -483,10 +523,12 @@ RULE 1 — accuracy. Do not invent:
 - If a detail isn't in the content, leave that field null or that list []. An empty list is correct; an invented list is wrong.
 - If there is genuinely no usable content at all, write a brief honest summary such as "Not enough detail was available to analyze this item." and leave all lists empty. Never copy the schema's placeholder text.
 
-RULE 2 — completeness. When content IS present, capture ALL of it and organize it:
+RULE 2 — completeness & depth. When content IS present, capture ALL of it, explain it, and organize it:
 - The source may include MANY slides (labeled "Slide 1", "Slide 2", …) and/or a full transcript. Read EVERY slide and the whole transcript — not just the first.
 - Turn each distinct point, step, name, date, definition, quote, or claim the post actually makes into its own list item. Do NOT collapse a rich, detailed post into one vague sentence.
-- "summary" should convey the full substance of the post, and key_points / structured lists should reflect its full breadth — everything it genuinely says, in order.
+- "summary" is the quick gist — 2-3 sentences someone can read at a glance.
+- "details" is where the depth lives: a thorough, multi-paragraph walk-through of what the post ACTUALLY says — its specifics, context, reasoning, examples, named people, numbers, and quotes, slide by slide / point by point. Go well beyond the summary; do not stop at a high-level gloss. Aim for a genuinely informative write-up (several short paragraphs) whenever the content supports it — a reader who never opens the original post should understand its full substance from "details" alone.
+- key_points / structured lists should still reflect its full breadth — everything it genuinely says, in order.
 - Set "confidence" from how much real content you had: a full multi-slide/transcript post you captured well → 0.8+; only a thin title and no body → 0.2 or lower.
 
 Analyze this content and return a JSON object:
@@ -495,7 +537,8 @@ Analyze this content and return a JSON object:
   "content_type": "recipe|workout|travel|product|education|advice|entertainment|other",
   "confidence": 0.0-1.0,
   "title": "Brief descriptive title",
-  "summary": "2-4 sentences conveying the full substance of the content (more if it is genuinely rich)",
+  "summary": "2-3 sentence overview — the quick gist at a glance",
+  "details": "An in-depth, multi-paragraph explanation of the post grounded ONLY in the content below. Separate paragraphs with a blank line. Walk through the full substance — every slide/section/point with its specifics, context, reasoning, examples, names, numbers, and quotes — so a reader understands the post without opening it. Keep it honest and short if the content is genuinely thin; NEVER pad with invented material.",
   "category": "Best matching category name from the user's list",
   "subcategory": "Best matching subcategory",
   "tags": ["tag1", "tag2", "tag3"],

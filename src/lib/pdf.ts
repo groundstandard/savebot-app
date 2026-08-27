@@ -57,6 +57,9 @@ export function buildItemHtml(item: SavedItem, includeNotes: boolean): string {
   const title = shareTitle(item);
   const body = sectionsFor(item);
   const notes = includeNotes && item.user_notes?.trim() ? `<h2>My notes</h2><p>${esc(item.user_notes.trim())}</p>` : '';
+  const sources = item.reference_links?.length
+    ? `<h2>Sources</h2><ol>${item.reference_links.map((r) => `<li><a href="${esc(r.url)}">${esc(r.title)}</a></li>`).join('')}</ol>`
+    : '';
   const src = item.source_url ? `<a href="${esc(item.source_url)}">${esc(item.source_url)}</a>` : '';
   const creator = item.source_creator_handle ? `Creator: @${esc(item.source_creator_handle)}` : '';
 
@@ -67,6 +70,7 @@ export function buildItemHtml(item: SavedItem, includeNotes: boolean): string {
     .brand { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #6366F1; margin: 0 0 6px; }
     h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: -0.02em; }
     .summary { color: #374151; font-size: 15px; margin: 0 0 14px; }
+    .details { color: #374151; font-size: 14px; margin: 0 0 10px; }
     .meta { color: #6366F1; font-weight: 600; font-size: 13px; margin: 0 0 8px; }
     .tags { color: #6B7280; font-size: 12px; margin: 0 0 8px; }
     h2 { font-size: 15px; margin: 20px 0 8px; border-bottom: 1px solid #E5E7EB; padding-bottom: 4px; }
@@ -79,8 +83,10 @@ export function buildItemHtml(item: SavedItem, includeNotes: boolean): string {
     <p class="brand">SaveBot</p>
     <h1>${esc(title)}</h1>
     ${item.ai_summary ? `<p class="summary">${esc(item.ai_summary)}</p>` : ''}
+    ${item.ai_details ? `<h2>Details</h2>${item.ai_details.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean).map((p) => `<p class="details">${esc(p)}</p>`).join('')}` : ''}
     ${body}
     ${notes}
+    ${sources}
     <div class="footer">${creator}${creator && src ? ' · ' : ''}${src}<br/>Saved with SaveBot</div>
   </body></html>`;
 }
