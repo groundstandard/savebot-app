@@ -96,6 +96,17 @@ Install the build, open Instagram/TikTok → **Share → SaveBot**. Confirm a pe
 item appears and then completes (via the `process-save-item` Edge Function, which
 fetches the post details + thumbnail and runs AI extraction).
 
+## Known issue: source app (Instagram) freezes after sharing — FIXED 2026-08-26
+
+Symptom (Bobby): sharing from Instagram into SaveBot left Instagram frozen until
+force-closed. Cause: `NSExtensionActivationSupportsWebPageWithMaxCount` in
+`iosActivationRules` makes iOS treat the extension as a *web-page* target, which
+runs a Safari preprocessing JS step inside the extension. Apps like Instagram
+share a URL (not a web page), so that step holds the extension context and leaves
+the source app unresponsive. Fix: removed that rule — we keep `WebURL` (URLs),
+`Image`, and `Text`, which capture everything SaveBot actually needs. **Requires a
+new native EAS build to take effect (not an OTA update).**
+
 ## Edge cases to cover (from the sprint checklist)
 
 - No URL and no image → save the raw text only.
