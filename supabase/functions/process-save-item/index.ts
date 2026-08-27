@@ -456,12 +456,17 @@ serve(async (req) => {
         (c) => c.name.toLowerCase().includes((extracted.category ?? '').toLowerCase())
       );
 
-      update.ai_summary = extracted.summary ?? null;
+      // Coerce everything the app renders as text into safe strings. A richer
+      // model sometimes returns a "key point" as an object (e.g. {point, detail})
+      // instead of a string; rendering that in React Native throws "Objects are
+      // not valid as a React child" and crashes the item screen. Sanitizing here
+      // protects every client without needing an app update.
+      update.ai_summary = toText(extracted.summary) || null;
       // In-depth write-up (Bobby: "write more details about the post", 2026-08-26).
-      update.ai_details = (typeof extracted.details === 'string' && extracted.details.trim()) ? extracted.details.trim() : null;
-      update.structured_data = extracted.structured_data ?? null;
-      update.content_classification = extracted.content_type ?? null;
-      update.ai_tags = extracted.tags ?? [];
+      update.ai_details = toText(extracted.details) || null;
+      update.structured_data = sanitizeStructured(extracted.structured_data);
+      update.content_classification = typeof extracted.content_type === 'string' ? extracted.content_type : null;
+      update.ai_tags = strList(extracted.tags);
       // Organization axes (Bobby): famous people, topic, moral-lesson theme.
       update.people = Array.isArray(extracted.people) ? extracted.people.filter((p: unknown) => typeof p === 'string' && p.trim()).slice(0, 12) : [];
       update.topic = (typeof extracted.topic === 'string' && extracted.topic.trim()) ? extracted.topic.trim() : null;
@@ -574,6 +579,64 @@ Return valid JSON only. No explanation.`;
 function parseJSON(text: string): any {
   const clean = text.replace(/```json\n?|\n?```/g, '').trim();
   try { return JSON.parse(clean); } catch { return {}; }
+}
+
+/** Coerce any AI value into a safe display string — never an object/array that
+ *  would crash a React Native <Text> child. */
+function toText(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(toText).filter(Boolean).join(', ');
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const pick = o.text ?? o.point ?? o.name ?? o.item ?? o.title ?? o.value ?? o.description ?? o.step;
+    if (pick != null && typeof pick !== 'object') return String(pick).trim();
+    return Object.values(o).map(toText).filter(Boolean).join(' — ');
+  }
+  return String(v);
+}
+
+/** Force a value into an array of clean, non-empty strings. */
+function strList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map(toText).filter(Boolean);
+}
+
+/**
+ * Make the model's structured_data safe for the app to render. The item screen
+ * prints many fields directly as text, so any object where a string is expected
+ * crashes it. Coerce the plain-string fields + the text sub-fields of the
+ * object-array fields, keeping each schema variant's shape.
+ */
+function sanitizeStructured(d: any): any {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+  const out: Record<string, any> = { ...d };
+  for (const k of ['tips', 'pros', 'cons', 'locations', 'target_muscles', 'equipment_needed', 'dietary_tags', 'key_points', 'actionable_items']) {
+    if (k in out) out[k] = strList(out[k]);
+  }
+  for (const k of ['type', 'dish_name', 'cuisine', 'meal_type', 'difficulty', 'workout_name', 'workout_type', 'destination', 'travel_type', 'recommended_season', 'estimated_cost', 'product_name', 'brand', 'price', 'where_to_buy', 'category', 'title']) {
+    if (k in out && out[k] != null) out[k] = toText(out[k]) || null;
+  }
+  if (Array.isArray(out.ingredients)) out.ingredients = out.ingredients.map((i: any) => ({
+    item: toText(i?.item),
+    quantity: typeof i?.quantity === 'number' ? i.quantity : null,
+    unit: i?.unit != null ? toText(i.unit) || null : null,
+    notes: i?.notes != null ? toText(i.notes) || null : null,
+  }));
+  if (Array.isArray(out.instructions)) out.instructions = out.instructions.map((s: any, idx: number) => ({
+    step: typeof s?.step === 'number' ? s.step : idx + 1,
+    text: toText(s?.text ?? s),
+    time_minutes: typeof s?.time_minutes === 'number' ? s.time_minutes : null,
+  }));
+  if (Array.isArray(out.exercises)) out.exercises = out.exercises.map((e: any) => ({
+    name: toText(e?.name),
+    sets: typeof e?.sets === 'number' ? e.sets : null,
+    reps: e?.reps != null ? toText(e.reps) || null : null,
+    rest_seconds: typeof e?.rest_seconds === 'number' ? e.rest_seconds : null,
+    notes: e?.notes != null ? toText(e.notes) || null : null,
+  }));
+  return out;
 }
 
 /**

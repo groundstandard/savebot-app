@@ -33,6 +33,27 @@ async function signedMediaUrl(media?: SavedItemMedia): Promise<string | null> {
 
 type ViewMode = 'clean' | 'original';
 
+/**
+ * Never let a non-string AI value reach a <Text> child. A richer model can
+ * return a "key point" or field as an object/array instead of a string, which
+ * throws "Objects are not valid as a React child" and crashes the screen. This
+ * coerces anything to a safe string (the edge function also sanitizes on save;
+ * this guards items saved before that and any future surprises).
+ */
+function asText(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(asText).filter(Boolean).join(', ');
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const pick = o.text ?? o.point ?? o.name ?? o.item ?? o.title ?? o.value ?? o.description;
+    if (pick != null && typeof pick !== 'object') return String(pick);
+    return Object.values(o).map(asText).filter(Boolean).join(' — ');
+  }
+  return String(v);
+}
+
 export default function ItemDetailScreen() {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
@@ -551,9 +572,9 @@ function CleanView({ item, onRetry }: { item: SavedItem; onRetry: () => void }) 
           <Text style={styles.reviewText}>AI wasn't fully sure — double-check the details.</Text>
         </View>
       )}
-      {item.ai_summary && <Text style={styles.summary}>{item.ai_summary}</Text>}
+      {item.ai_summary && <Text style={styles.summary}>{asText(item.ai_summary)}</Text>}
 
-      {!!item.ai_details && (
+      {typeof item.ai_details === 'string' && item.ai_details.trim().length > 0 && (
         <View style={styles.detailsSection}>
           <SectionHeader icon="document-text-outline" title="Details" />
           {item.ai_details
@@ -588,33 +609,33 @@ function RecipeView({ data }: { data: RecipeData }) {
   const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
-      <Text style={styles.title}>{data.dish_name}</Text>
+      <Text style={styles.title}>{asText(data.dish_name)}</Text>
       <MetaRow>
-        {data.total_time_minutes ? <Meta icon="time-outline" label={`${data.total_time_minutes} min`} /> : null}
-        {data.servings ? <Meta icon="people-outline" label={`${data.servings} servings`} /> : null}
-        {data.difficulty ? <Meta icon="stats-chart-outline" label={data.difficulty} /> : null}
-        {data.cuisine ? <Meta icon="globe-outline" label={data.cuisine} /> : null}
+        {data.total_time_minutes ? <Meta icon="time-outline" label={`${asText(data.total_time_minutes)} min`} /> : null}
+        {data.servings ? <Meta icon="people-outline" label={`${asText(data.servings)} servings`} /> : null}
+        {data.difficulty ? <Meta icon="stats-chart-outline" label={asText(data.difficulty)} /> : null}
+        {data.cuisine ? <Meta icon="globe-outline" label={asText(data.cuisine)} /> : null}
       </MetaRow>
-      {data.dietary_tags.length > 0 && (
+      {(Array.isArray(data.dietary_tags) ? data.dietary_tags : []).length > 0 && (
         <View style={styles.chipRow}>
-          {data.dietary_tags.map((t) => <Chip key={t} label={t} />)}
+          {data.dietary_tags.map((t, i) => <Chip key={i} label={asText(t)} />)}
         </View>
       )}
       <SectionHeader icon="list-outline" title="Ingredients" />
-      {data.ingredients.map((ing, i) => (
+      {(Array.isArray(data.ingredients) ? data.ingredients : []).map((ing, i) => (
         <View key={i} style={styles.bulletRow}>
           <View style={styles.bulletDot} />
           <Text style={styles.bulletText}>
-            {[ing.quantity, ing.unit, ing.item].filter(Boolean).join(' ')}
-            {ing.notes ? <Text style={styles.bulletNote}>  ({ing.notes})</Text> : null}
+            {[ing.quantity, ing.unit, ing.item].map(asText).filter(Boolean).join(' ')}
+            {ing.notes ? <Text style={styles.bulletNote}>  ({asText(ing.notes)})</Text> : null}
           </Text>
         </View>
       ))}
       <SectionHeader icon="footsteps-outline" title="Instructions" />
-      {data.instructions.map((step) => (
-        <View key={step.step} style={styles.step}>
-          <Text style={styles.stepNum}>{step.step}</Text>
-          <Text style={styles.stepText}>{step.text}</Text>
+      {(Array.isArray(data.instructions) ? data.instructions : []).map((step, i) => (
+        <View key={i} style={styles.step}>
+          <Text style={styles.stepNum}>{asText(step.step) || i + 1}</Text>
+          <Text style={styles.stepText}>{asText(step.text)}</Text>
         </View>
       ))}
       {data.tips?.length > 0 && <Tips tips={data.tips} />}
@@ -628,33 +649,33 @@ function WorkoutView({ data }: { data: WorkoutData }) {
   const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
-      <Text style={styles.title}>{data.workout_name}</Text>
+      <Text style={styles.title}>{asText(data.workout_name)}</Text>
       <MetaRow>
-        {data.duration_minutes ? <Meta icon="time-outline" label={`${data.duration_minutes} min`} /> : null}
-        {data.difficulty ? <Meta icon="stats-chart-outline" label={data.difficulty} /> : null}
-        {data.workout_type ? <Meta icon="barbell-outline" label={data.workout_type} /> : null}
+        {data.duration_minutes ? <Meta icon="time-outline" label={`${asText(data.duration_minutes)} min`} /> : null}
+        {data.difficulty ? <Meta icon="stats-chart-outline" label={asText(data.difficulty)} /> : null}
+        {data.workout_type ? <Meta icon="barbell-outline" label={asText(data.workout_type)} /> : null}
       </MetaRow>
-      {data.target_muscles.length > 0 && (
-        <View style={styles.chipRow}>{data.target_muscles.map((m) => <Chip key={m} label={m} />)}</View>
+      {(Array.isArray(data.target_muscles) ? data.target_muscles : []).length > 0 && (
+        <View style={styles.chipRow}>{data.target_muscles.map((m, i) => <Chip key={i} label={asText(m)} />)}</View>
       )}
-      {data.equipment_needed.length > 0 && (
+      {(Array.isArray(data.equipment_needed) ? data.equipment_needed : []).length > 0 && (
         <>
           <SectionHeader icon="construct-outline" title="Equipment" />
-          <Text style={styles.paragraph}>{data.equipment_needed.join(', ')}</Text>
+          <Text style={styles.paragraph}>{data.equipment_needed.map(asText).filter(Boolean).join(', ')}</Text>
         </>
       )}
       <SectionHeader icon="fitness-outline" title="Exercises" />
-      {data.exercises.map((ex, i) => (
+      {(Array.isArray(data.exercises) ? data.exercises : []).map((ex, i) => (
         <View key={i} style={styles.exerciseCard}>
-          <Text style={styles.exerciseName}>{ex.name}</Text>
+          <Text style={styles.exerciseName}>{asText(ex.name)}</Text>
           <Text style={styles.exerciseMeta}>
             {[
-              ex.sets ? `${ex.sets} sets` : null,
-              ex.reps ? `${ex.reps} reps` : null,
-              ex.rest_seconds ? `${ex.rest_seconds}s rest` : null,
+              ex.sets ? `${asText(ex.sets)} sets` : null,
+              ex.reps ? `${asText(ex.reps)} reps` : null,
+              ex.rest_seconds ? `${asText(ex.rest_seconds)}s rest` : null,
             ].filter(Boolean).join(' · ')}
           </Text>
-          {ex.notes ? <Text style={styles.exerciseNote}>{ex.notes}</Text> : null}
+          {ex.notes ? <Text style={styles.exerciseNote}>{asText(ex.notes)}</Text> : null}
         </View>
       ))}
       {data.tips?.length > 0 && <Tips tips={data.tips} />}
@@ -668,19 +689,19 @@ function TravelView({ data }: { data: TravelData }) {
   const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
-      <Text style={styles.title}>{data.destination}</Text>
+      <Text style={styles.title}>{asText(data.destination)}</Text>
       <MetaRow>
-        {data.travel_type ? <Meta icon="airplane-outline" label={data.travel_type} /> : null}
-        {data.recommended_season ? <Meta icon="sunny-outline" label={data.recommended_season} /> : null}
-        {data.estimated_cost ? <Meta icon="cash-outline" label={data.estimated_cost} /> : null}
+        {data.travel_type ? <Meta icon="airplane-outline" label={asText(data.travel_type)} /> : null}
+        {data.recommended_season ? <Meta icon="sunny-outline" label={asText(data.recommended_season)} /> : null}
+        {data.estimated_cost ? <Meta icon="cash-outline" label={asText(data.estimated_cost)} /> : null}
       </MetaRow>
-      {data.locations.length > 0 && (
+      {(Array.isArray(data.locations) ? data.locations : []).length > 0 && (
         <>
           <SectionHeader icon="location-outline" title="Places" />
           {data.locations.map((loc, i) => (
             <View key={i} style={styles.bulletRow}>
               <View style={styles.bulletDot} />
-              <Text style={styles.bulletText}>{loc}</Text>
+              <Text style={styles.bulletText}>{asText(loc)}</Text>
             </View>
           ))}
         </>
@@ -696,36 +717,36 @@ function ProductView({ data }: { data: ProductData }) {
   const styles = useMemo(() => makeStyles(c), [c]);
   return (
     <View>
-      <Text style={styles.title}>{data.product_name}</Text>
+      <Text style={styles.title}>{asText(data.product_name)}</Text>
       <MetaRow>
-        {data.brand ? <Meta icon="pricetag-outline" label={data.brand} /> : null}
-        {data.price ? <Meta icon="cash-outline" label={data.price} /> : null}
-        {data.category ? <Meta icon="albums-outline" label={data.category} /> : null}
+        {data.brand ? <Meta icon="pricetag-outline" label={asText(data.brand)} /> : null}
+        {data.price ? <Meta icon="cash-outline" label={asText(data.price)} /> : null}
+        {data.category ? <Meta icon="albums-outline" label={asText(data.category)} /> : null}
       </MetaRow>
       {data.where_to_buy ? (
         <>
           <SectionHeader icon="cart-outline" title="Where to buy" />
-          <Text style={styles.paragraph}>{data.where_to_buy}</Text>
+          <Text style={styles.paragraph}>{asText(data.where_to_buy)}</Text>
         </>
       ) : null}
-      {data.pros.length > 0 && (
+      {(Array.isArray(data.pros) ? data.pros : []).length > 0 && (
         <>
           <SectionHeader icon="thumbs-up-outline" title="Pros" />
           {data.pros.map((p, i) => (
             <View key={i} style={styles.bulletRow}>
               <Ionicons name="checkmark" size={14} color={c.success} style={{ marginTop: 3 }} />
-              <Text style={styles.bulletText}>{p}</Text>
+              <Text style={styles.bulletText}>{asText(p)}</Text>
             </View>
           ))}
         </>
       )}
-      {data.cons.length > 0 && (
+      {(Array.isArray(data.cons) ? data.cons : []).length > 0 && (
         <>
           <SectionHeader icon="thumbs-down-outline" title="Cons" />
           {data.cons.map((con, i) => (
             <View key={i} style={styles.bulletRow}>
               <Ionicons name="close" size={14} color={c.danger} style={{ marginTop: 3 }} />
-              <Text style={styles.bulletText}>{con}</Text>
+              <Text style={styles.bulletText}>{asText(con)}</Text>
             </View>
           ))}
         </>
@@ -738,27 +759,29 @@ function ProductView({ data }: { data: ProductData }) {
 function GenericView({ data }: { data: GenericData }) {
   const c = useColors();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const keyPoints = Array.isArray(data.key_points) ? data.key_points : [];
+  const actions = Array.isArray(data.actionable_items) ? data.actionable_items : [];
   return (
     <View>
-      <Text style={styles.title}>{data.title}</Text>
-      {data.key_points.length > 0 && (
+      {!!data.title && <Text style={styles.title}>{asText(data.title)}</Text>}
+      {keyPoints.length > 0 && (
         <>
           <SectionHeader icon="bulb-outline" title="Key points" />
-          {data.key_points.map((k, i) => (
+          {keyPoints.map((k, i) => (
             <View key={i} style={styles.bulletRow}>
               <View style={styles.bulletDot} />
-              <Text style={styles.bulletText}>{k}</Text>
+              <Text style={styles.bulletText}>{asText(k)}</Text>
             </View>
           ))}
         </>
       )}
-      {data.actionable_items.length > 0 && (
+      {actions.length > 0 && (
         <>
           <SectionHeader icon="checkbox-outline" title="Action items" />
-          {data.actionable_items.map((a, i) => (
+          {actions.map((a, i) => (
             <View key={i} style={styles.bulletRow}>
               <Ionicons name="arrow-forward" size={14} color={c.primary} style={{ marginTop: 3 }} />
-              <Text style={styles.bulletText}>{a}</Text>
+              <Text style={styles.bulletText}>{asText(a)}</Text>
             </View>
           ))}
         </>
@@ -807,8 +830,8 @@ function Tips({ tips }: { tips: string[] }) {
         <Ionicons name="bulb" size={15} color={c.warning} />
         <Text style={styles.tipsTitle}>Tips</Text>
       </View>
-      {tips.map((t, i) => (
-        <Text key={i} style={styles.tipText}>• {t}</Text>
+      {(Array.isArray(tips) ? tips : []).map((t, i) => (
+        <Text key={i} style={styles.tipText}>• {asText(t)}</Text>
       ))}
     </View>
   );
